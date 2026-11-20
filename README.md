@@ -14,3 +14,10 @@ bin/amp-tweaks run                 # foreground, for debugging
 The CA in `ca/` is name-constrained to `ampcode.com` and `.ampcode.com`, so it can't sign any other site. Generate your own with `ca/ca.cnf` (see git history); the keys are gitignored. If the proxy is down, the PAC falls back to DIRECT.
 
 After enabling, connections Amp already has open bypass the proxy until its WebKit networking process restarts (relaunch Amp, or `View ▸ Reload Window` after the pool idles). Log: `~/Library/Logs/amp-tweaks.log`.
+
+## Writing tweaks
+
+- Amp sets some `!important` rules inside Tailwind cascade layers, which beat unlayered `!important`. The loader declares `@layer amp-tweaks` before Amp's CSS loads, so `@layer amp-tweaks { … !important }` wins over them.
+- `GET /__amp-tweaks/data/threads.json` returns `[{id, updated}]` from `amp threads list` (cached for 20s), for metadata the DOM doesn't carry.
+- `POST /__amp-tweaks/report?name=X` writes the request body to `~/Library/Logs/amp-tweaks-reports/X.json`, so a tweak can report page state without opening Web Inspector.
+- Sidebar rows are `a[data-sidebar-thread-id]` with `data-thread-row-*` attributes; restyle those rather than re-rendering, so routing, context menus and drag keep working.

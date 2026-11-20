@@ -17,6 +17,13 @@
     log("native shell detected; webViewInspectable forced on");
   }
 
+  // Declare our cascade layer before any of Amp's CSS loads. Amp (Tailwind) puts some
+  // `!important` rules in layers, which beat unlayered `!important`; for important
+  // declarations the earliest-declared layer wins, so `@layer amp-tweaks { … !important }` beats them.
+  const layer = document.createElement("style");
+  layer.textContent = "@layer amp-tweaks;";
+  document.head.prepend(layer);
+
   const styles = new Map();
   function applyCss(files, v) {
     for (const [name, el] of styles) if (!files.includes(name)) { el.remove(); styles.delete(name); }
