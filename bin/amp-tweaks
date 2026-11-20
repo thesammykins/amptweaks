@@ -1,0 +1,81 @@
+#!/bin/zsh
+# amp-tweaks: inject ~/.amp-tweaks/*.css|js into the Amp macOS app (and ampcode.com).
+set -euo pipefail
+ROOT=${0:A:h:h}
+PORT=${AMP_TWEAKS_PORT:-8787}
+PAC_PORT=${AMP_TWEAKS_PAC_PORT:-8788}
+PAC_URL="http://127.0.0.1:$PAC_PORT/proxy.pac"
+LABEL=com.amp-tweaks.proxy
+AGENT=~/Library/LaunchAgents/$LABEL.plist
+LOG=~/Library/Logs/amp-tweaks.log
+
+services() {
+  networksetup -listallnetworkservices | tail -n +2 | grep -v '^\*'
+}
+
+case ${1:-run} in
+  run)
+    exec mitmdump \
+      --set confdir="$ROOT/ca" \
+      --set connection_strategy=lazy \
+      --set termlog_verbosity=info \
+      --allow-hosts '^((.+\.)?ampcode\.com|127\.0\.0\.1)(:\d+)?$' \
+      --mode "regular@$PORT" \
+      --mode "reverse:http://127.0.0.1:9@$PAC_PORT" \
+      -s "$ROOT/addon.py"
+    ;;
+
+  enable)
+    mkdir -p ~/.amp-tweaks
+    cat > "$AGENT" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>$LABEL</string>
+  <key>ProgramArguments</key><array><string>$ROOT/bin/amp-tweaks</string><string>run</string></array>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$LOG</string>
+  <key>StandardErrorPath</key><string>$LOG</string>
+</dict></plist>
+PLIST
+    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "gui/$UID" "$AGENT"
+    echo "proxy agent loaded ($LOG)"
+
+    if ! security verify-cert -c "$ROOT/ca/cert.pem" -p ssl >/dev/null 2>&1; then
+      echo "trusting CA (constrained to ampcode.com) in login keychain…"
+      security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db "$ROOT/ca/cert.pem"
+    fi
+
+    services | while read -r svc; do
+      networksetup -setautoproxyurl "$svc" "$PAC_URL"
+      networksetup -setautoproxystate "$svc" on
+      echo "PAC on: $svc"
+    done
+    echo "enabled — quit and reopen Amp"
+    ;;
+
+  disable)
+    services | while read -r svc; do
+      networksetup -setautoproxystate "$svc" off
+      echo "PAC off: $svc"
+    done
+    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null && echo "proxy agent stopped" || true
+    rm -f "$AGENT"
+    if [[ ${2:-} == --untrust ]]; then
+      security remove-trusted-cert "$ROOT/ca/cert.pem" && echo "CA trust removed"
+    fi
+    echo "disabled — quit and reopen Amp"
+    ;;
+
+  status)
+    launchctl print "gui/$UID/$LABEL" 2>/dev/null | grep -E '^\s+state' || echo "agent: not loaded"
+    scutil --proxy | grep -E 'ProxyAutoConfig(Enable|URLString)' || echo "PAC: not set"
+    security verify-cert -c "$ROOT/ca/cert.pem" -p ssl >/dev/null 2>&1 && echo "CA: trusted" || echo "CA: not trusted"
+    ls ~/.amp-tweaks
+    ;;
+
+  *) echo "usage: amp-tweaks run|enable|disable [--untrust]|status" >&2; exit 2 ;;
+esac

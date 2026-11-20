@@ -1,0 +1,12 @@
+[req]
+distinguished_name = dn
+x509_extensions = v3_ca
+prompt = no
+[dn]
+CN = Amp Tweaks Local CA (ampcode.com only)
+O = amp-tweaks
+[v3_ca]
+basicConstraints = critical, CA:TRUE, pathlen:0
+keyUsage = critical, keyCertSign, cRLSign
+subjectKeyIdentifier = hash
+nameConstraints = critical, permitted;DNS:ampcode.com, permitted;DNS:.ampcode.com
