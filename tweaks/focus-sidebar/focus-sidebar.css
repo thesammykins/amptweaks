@@ -832,3 +832,5 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 /* Reset is a [data-f] control but not a full-width item. */
 [data-amp-focus-menu] [data-menu-reset] { display: inline; width: auto; flex: none; padding: 0 !important; }
 [data-menu-top] [data-menu-title] { white-space: nowrap; }
+[data-amp-focus-row][data-acts="4"] { --acts-w: 5.875rem; }
+[data-row-actions] [data-act="done"]:hover { color: var(--color-success, var(--color-foreground)); }

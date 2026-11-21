@@ -318,7 +318,7 @@
     const s = snoozed.get(id);
     if (!s) return false;
     if (s.kind === "parent") return Date.now() - s.at < 864e5; // a container: its family is filtered above
-    const same = c && c.kind === s.kind && (c.since ?? null) === (s.since ?? null) && Date.now() - s.at < 864e5;
+    const same = c && c.kind === s.kind && (c.since ?? null) === (s.since ?? null) && (s.done || Date.now() - s.at < 864e5);
     if (!same) { snoozed.delete(id); saveSnoozed(); }
     return same;
   }
@@ -413,6 +413,7 @@
     branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg>',
     runner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>',
     worktree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h7l2 2h7v10H4z"/><path d="M9 13h6"/></svg>',
+    done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.25 2.5 2.5 4.75-5"/></svg>',
     retry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   };
@@ -502,6 +503,7 @@
     // Hover actions live in the row's trail: they open to the right of the toggle and push it left.
     const acts = [
       it.kind === "failed" ? ["retry", "Retry", ICON.retry] : null,
+      it.kind === "asking" ? ["done", "Mark done", ICON.done] : null,
       it.inAmp ? ["more", "More", ICON.more] : null,
       ["archive", "Archive", ICON.archive],
     ].filter(Boolean);
@@ -1051,18 +1053,24 @@
   // True once the user has pressed Undo for this archive (its entry has left the stack).
   const undoInFlight = fn => !undoStack.some(u => u.fn === fn);
 
-  function snoozeItem(el, id) {
+  // Mark done: Amp has no "read" state for an Ask (it's the agent's last message waiting on input), so this is ours:
+  // the row stays hidden until the thread changes (a new message or state), with no time limit.
+  const markDone = (el, id) => snoozeItem(el, id, true);
+
+  function snoozeItem(el, id, done = false) {
     if (!id) return closeTray(el);
-    const it = model.find(i => i.id === id);
-    snoozed.set(id, { kind: it?.kind ?? null, since: it?.since ?? null, at: Date.now() });
+    const it = model.flatMap(i => [i, ...(i.children ?? [])]).find(i => i.id === id);
+    snoozed.set(id, { kind: it?.kind ?? null, since: it?.since ?? null, at: Date.now(), ...(done ? { done: true } : {}) });
     saveSnoozed();
     model = model.filter(i => i.id !== id);
     el.removeAttribute("data-thread-id");
     el.setAttribute("data-leaving", "");
     swipe.active = false;
-    const done = reduceMotion.matches ? Promise.resolve() : el.animate([{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: "translateX(40%)" }], { duration: 260, easing: EASE, fill: "forwards" }).finished.catch(() => {});
-    done.then(() => collapse(el, 220)).then(() => render(true));
-    pushUndo(`Snoozed ${titleOf(id)}`, 0, () => { snoozed.delete(id); saveSnoozed(); recompute(true); });
+    const gone = reduceMotion.matches ? Promise.resolve() : el.animate(done
+      ? [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.97)" }]
+      : [{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: "translateX(40%)" }], { duration: done ? 200 : 260, easing: EASE, fill: "forwards" }).finished.catch(() => {});
+    gone.then(() => collapse(el, 220)).then(() => render(true));
+    pushUndo(`${done ? "Marked done" : "Snoozed"} ${titleOf(id)}`, 0, () => { snoozed.delete(id); saveSnoozed(); recompute(true); });
   }
 
   function pushUndo(text, extra, fn) {
@@ -1172,7 +1180,7 @@
     const details = section("Row details", `<div data-grid>${Object.entries(DETAILS).map(([k, t]) => check(`show:${k}`, prefs.display[k], t)).join("")}</div>`
       + `<div data-seg-row><span>Density</span>${seg([["comfortable", "Comfortable"], ["compact", "Compact"]], prefs.display.density, "density:")}</div>`
       + `<div data-seg-row><span>When narrow</span>${seg([["fade", "Fade details"], ["all", "Wrap"]], prefs.display.fit, "fit:")}</div>`);
-    const footer = `<div data-menu-footer>${snoozed.size ? action("unsnooze", "Show snoozed", String(snoozed.size)) : ""}${action("archive-done", "Archive all done", doneCount ? String(doneCount) : "")}</div>`;
+    const footer = `<div data-menu-footer>${snoozed.size ? action("unsnooze", "Show snoozed and done", String(snoozed.size)) : ""}${action("archive-done", "Archive all done", doneCount ? String(doneCount) : "")}</div>`;
     return `<div data-menu-top><span data-menu-title>${esc(MODES[prefs.mode])} view</span>${filtersAreDefault() ? "" : `<button type="button" data-f="reset" data-menu-reset>Reset</button>`}</div>`
       + `<div data-menu-body>${[...lead, threads].join("")}${details}</div>` + footer;
   }
@@ -1346,7 +1354,7 @@
       };
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       // Letter shortcuts only when the row was reached by keyboard (a click focuses it too; typing must not archive).
-      if ((key === "e" || key === "s") && !row.matches(":focus-visible")) return;
+      if ((key === "e" || key === "s" || key === "d") && !row.matches(":focus-visible")) return;
       const expand = open => {
         if (!item || holder !== item || !item.querySelector(":scope > [data-family]:not([hidden])")) return false;
         if (prefs.expanded.has(id) === open) return false;
@@ -1371,6 +1379,7 @@
         next?.focus();
       }
       else if (key === "s" && holder === item) snoozeItem(item, id);
+      else if (key === "d" && row.dataset.kind === "asking") markDone(holder, id);
       else if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) { const r = row.getBoundingClientRect(); openAmpMenu(id, r.left + 24, r.bottom); }
       else handled = false;
       if (handled) { e.preventDefault(); e.stopPropagation(); }
@@ -1444,6 +1453,7 @@
         const id = holder.dataset.threadId;
         const r = actBtn.getBoundingClientRect();
         if (actBtn.dataset.act === "archive") archiveItems([{ el: holder, id, point: { x: r.left + r.width / 2, y: r.top + r.height / 2 } }]);
+        else if (actBtn.dataset.act === "done") markDone(holder, id);
         else if (actBtn.dataset.act === "retry") retryThread(id, holder.querySelector(":scope > [data-amp-focus-row]")?.dataset.href ?? hrefOf(id));
         else openAmpMenu(id, r.left, r.bottom + 4);
         return;
