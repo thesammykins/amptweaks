@@ -1678,6 +1678,21 @@
     liveTimer = setTimeout(liveTick, Math.max(0, Math.min(150, 500 - (now - liveFirst))));
   }
 
+  // Hover intent for rows with a sub-thread toggle: the toggle only slides aside once the pointer has rested on the row
+  // away from it, so you can reach and click the toggle where it is. Once revealed, it stays until the pointer leaves the row.
+  const REVEAL_MS = 260;
+  let revealRow = null, revealTimer = 0;
+  const clearReveal = () => { clearTimeout(revealTimer); revealTimer = 0; revealRow?.removeAttribute("data-reveal"); revealRow = null; };
+  document.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse") return;
+    const row = e.target.closest?.("[data-amp-focus-root] [data-amp-focus-row]");
+    if (row !== revealRow) { clearReveal(); revealRow = row; }
+    if (!row || row.hasAttribute("data-reveal") || !row.querySelector("[data-family-toggle]")) return;
+    if (e.target.closest("[data-trail]")) { clearTimeout(revealTimer); revealTimer = 0; return; }
+    if (!revealTimer) revealTimer = setTimeout(() => { revealTimer = 0; if (revealRow === row && row.matches(":hover")) row.setAttribute("data-reveal", ""); }, REVEAL_MS);
+  }, { passive: true });
+  document.addEventListener("pointerleave", clearReveal);
+
   let searchFlip = false;
   // Typing in Amp's search box: Amp swaps its rows, the observer picks that up; this covers a query that leaves the same rows.
   document.addEventListener("input", e => { if (e.target.matches?.('[data-testid="sidebar-list-search-input"]')) { clearTimeout(liveTimer); liveTimer = setTimeout(liveTick, 120); } }, true);
