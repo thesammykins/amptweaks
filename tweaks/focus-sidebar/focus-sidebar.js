@@ -9,7 +9,7 @@
   const TAG = "[amp-tweaks:focus]";
   const WORKING = new Set(["compacting", "working", "streaming", "tool_use", "running_tools"]);
   // Working first (what's in motion), then what needs you, most blocking first.
-  const KIND_ORDER = ["working", "approve", "asking", "failed", "stalled", "review", "parent"];
+  const KIND_ORDER = ["working", "approve", "asking", "failed", "stalled", "review", "quiet", "parent"];
   const NEEDS = new Set(["approve", "asking", "failed", "stalled", "review"]);
   const OLDEST_FIRST = new Set(["approve", "asking", "stalled"]); // longest-waiting blockers first
   const STALL_MS = 10 * 60_000;
@@ -195,8 +195,9 @@
       // Spawned by another thread (orchestrated sub-thread): its finished result is reviewed via the parent.
       spawned: a.querySelector("[data-thread-row-origin-badge]")?.dataset.threadRowOriginBadge === "thread",
       parent: parentOf(a),
+      pinned: a.hasAttribute("data-thread-row-pinned"),
       flags: `${unread}|${running}|${error}`, // state changes → refetch detail
-      sig: `${unread}|${running}|${error}|${status}`, // any visible change → re-render
+      sig: `${unread}|${running}|${error}|${status}|${a.hasAttribute("data-thread-row-pinned")}`, // any visible change → re-render
     };
   }
 
@@ -314,6 +315,8 @@
   let loading = false;
 
   // Snoozed until its state changes (a different kind or a new "since"), or a day passes.
+  const quiet = (d, row) => ({ kind: "quiet", context: row?.status || d?.status || "", since: d?.agentAt ?? d?.updatedAt ?? null });
+
   function snoozedStill(id, c) {
     const s = snoozed.get(id);
     if (!s) return false;
@@ -338,6 +341,7 @@
       if (!cache.has(id) && row) loading = true;
       if (f.nest && row?.root && snoozed.has(row.root)) continue; // snoozed root takes its family with it
       let c = classify(d0, row);
+      if (!c && row?.pinned) c = quiet(d0, row);
       if (snoozedStill(id, c)) continue;
       const d = d0 ?? { title: row?.title || "Thread" };
       // The thread you have open keeps its place (e.g. a Done you're reading) until you move on.
@@ -347,8 +351,8 @@
       }
       if (c && d.repo) repos.add(d.repo);
       const shown = c && (c.held || (f.kinds[c.kind] !== false && !(d.repo && f.hidden.includes(d.repo))
-        && (c.kind === "working" || Date.now() - ts(c.since) <= maxAge)));
-      if (shown && c.kind !== "parent") active.set(id, { id, d, href: row?.href ?? `/threads/${id}`, inAmp: !!row, space: !!row?.space, spaceColor: row?.spaceColor, ...c });
+        && (c.kind === "working" || c.kind === "quiet" || Date.now() - ts(c.since) <= maxAge)));
+      if (shown && c.kind !== "parent") active.set(id, { id, d, href: row?.href ?? `/threads/${id}`, inAmp: !!row, space: !!row?.space, spaceColor: row?.spaceColor, pinned: !!row?.pinned, ...c });
     }
     const top = new Map();
     const ensureRoot = rootId => {
@@ -356,7 +360,7 @@
       if (snoozed.has(rootId) && snoozed.get(rootId).kind === "parent") return null;
       const r = rows.get(rootId);
       const d = cache.get(rootId)?.d ?? { title: r?.title || "Thread" };
-      const item = active.get(rootId) ?? { id: rootId, d, href: r?.href ?? `/threads/${rootId}`, inAmp: !!r, space: !!r?.space, spaceColor: r?.spaceColor, kind: "parent", since: d.updatedAt };
+      const item = active.get(rootId) ?? { id: rootId, d, href: r?.href ?? `/threads/${rootId}`, inAmp: !!r, space: !!r?.space, spaceColor: r?.spaceColor, pinned: !!r?.pinned, kind: "parent", since: d.updatedAt };
       item.children = item.children ?? [];
       top.set(rootId, item);
       return item;
@@ -388,8 +392,10 @@
       if (!groups.has(key)) groups.set(key, { key: String(key), title, order, items: [] });
       groups.get(key).items.push(item);
     };
+    if (searching) return list.length ? [{ key: "results", title: "Results", order: 0, items: list }] : [];
     for (const it of list) {
-      if (mode === "status" && it.space) add("spaces", "Spaces", -1, it);
+      if (mode === "status" && it.pinned) add("pinned", "Pinned", -2, it);
+      else if (mode === "status" && it.space) add("spaces", "Spaces", -1, it);
       else if (mode === "status") {
         const needs = it.kind !== "working" && [it, ...(it.children ?? [])].some(i => NEEDS.has(i.kind));
         add(needs ? "needs" : "working", needs ? "Needs you" : "Working", needs ? 1 : 0, it);
@@ -413,6 +419,8 @@
     branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg>',
     runner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>',
     worktree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h7l2 2h7v10H4z"/><path d="M9 13h6"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
+    unpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89"/><path d="m2 2 20 20"/><path d="M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11"/></svg>',
     done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.25 2.5 2.5 4.75-5"/></svg>',
     retry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
@@ -504,6 +512,7 @@
     const acts = [
       it.kind === "failed" ? ["retry", "Retry", ICON.retry] : null,
       it.kind === "asking" ? ["done", "Mark done", ICON.done] : null,
+      it.inAmp ? ["pin", it.pinned ? "Unpin" : "Pin", it.pinned ? ICON.unpin : ICON.pin] : null,
       it.inAmp ? ["more", "More", ICON.more] : null,
       ["archive", "Archive", ICON.archive],
     ].filter(Boolean);
@@ -869,7 +878,9 @@
         if (!seenItems.has(el) && !el.closest("[data-leaving]")) leave(el, animate);
       });
     }
-    root.querySelector("[data-amp-focus-empty]").hidden = groups.length > 0 || loading;
+    const empty = root.querySelector("[data-amp-focus-empty]");
+    setText(empty, searching ? "No matching threads" : "Nothing needs you");
+    empty.hidden = groups.length > 0 || (loading && !searching);
     syncActive();
     if (focused && focused.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
     syncTabStops(list);
@@ -1233,6 +1244,24 @@
     temp?.remove();
   }
 
+  // Pin = Amp's own per-row pin button (it ignores .click(), so send the pointer sequence Amp listens for).
+  function pressAmp(b) {
+    const r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + 4, clientY: r.top + 4, button: 0 };
+    b.dispatchEvent(new PointerEvent("pointerdown", { ...o, pointerType: "mouse", isPrimary: true }));
+    b.dispatchEvent(new MouseEvent("mousedown", o));
+    b.dispatchEvent(new PointerEvent("pointerup", { ...o, pointerType: "mouse", isPrimary: true }));
+    b.dispatchEvent(new MouseEvent("mouseup", o));
+    b.dispatchEvent(new MouseEvent("click", o));
+  }
+  function pinThread(id) {
+    const a = document.querySelector(`a[data-sidebar-thread-id="${CSS.escape(id)}"]`);
+    const b = a?.querySelector("[data-thread-row-pin]");
+    if (!b) { toast(`Couldn't pin ${titleOf(id)}: Amp's pin button wasn't found`, 0, null); return; }
+    const was = a.hasAttribute("data-thread-row-pinned");
+    pressAmp(b);
+    toast(`${was ? "Unpinned" : "Pinned"} ${titleOf(id)}`, 0, null);
+  }
+
   // Retry = Amp's own Retry in the thread view (it re-runs the failed turn); we open the thread and press it.
   async function retryThread(id, href) {
     navigate(id, href, {});
@@ -1354,7 +1383,7 @@
       };
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       // Letter shortcuts only when the row was reached by keyboard (a click focuses it too; typing must not archive).
-      if ((key === "e" || key === "s" || key === "d") && !row.matches(":focus-visible")) return;
+      if ((key === "e" || key === "s" || key === "d" || key === "p") && !row.matches(":focus-visible")) return;
       const expand = open => {
         if (!item || holder !== item || !item.querySelector(":scope > [data-family]:not([hidden])")) return false;
         if (prefs.expanded.has(id) === open) return false;
@@ -1380,6 +1409,7 @@
       }
       else if (key === "s" && holder === item) snoozeItem(item, id);
       else if (key === "d" && row.dataset.kind === "asking") markDone(holder, id);
+      else if (key === "p") pinThread(id);
       else if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) { const r = row.getBoundingClientRect(); openAmpMenu(id, r.left + 24, r.bottom); }
       else handled = false;
       if (handled) { e.preventDefault(); e.stopPropagation(); }
@@ -1454,6 +1484,7 @@
         const r = actBtn.getBoundingClientRect();
         if (actBtn.dataset.act === "archive") archiveItems([{ el: holder, id, point: { x: r.left + r.width / 2, y: r.top + r.height / 2 } }]);
         else if (actBtn.dataset.act === "done") markDone(holder, id);
+        else if (actBtn.dataset.act === "pin") pinThread(id);
         else if (actBtn.dataset.act === "retry") retryThread(id, holder.querySelector(":scope > [data-amp-focus-row]")?.dataset.href ?? hrefOf(id));
         else openAmpMenu(id, r.left, r.bottom + 4);
         return;
@@ -1562,8 +1593,26 @@
   // Skip renders when nothing visible changed (the 5s refresh usually finds nothing new).
   let lastModelSig = "";
   const modelSig = () => JSON.stringify([prefs.mode, prefs.focus, model.map(i => [i.id, i.kind, i.lead, i.context, i.since, i.d.title, i.held, i.finished, i.total, (i.children ?? []).map(c => [c.id, c.kind, c.context, c.since])])]);
+  let searching = false;
+  const ampSearch = () => {
+    const box = document.querySelector('[data-testid="sidebar-list-search"]');
+    const q = box?.querySelector('[data-testid="sidebar-list-search-input"]')?.value.trim();
+    return box?.dataset.open === "true" && !!q;
+  };
+  function searchItems() {
+    return [...rows].map(([id, row]) => {
+      const d0 = cache.get(id)?.d;
+      const c = classify(d0, row) ?? quiet(d0, row);
+      return { id, d: d0 ?? { title: row.title || "Thread" }, href: row.href, inAmp: true, space: row.space, spaceColor: row.spaceColor, pinned: row.pinned,
+        ...c, children: [], lead: c.kind, leadSince: c.since, finished: 0, total: 0 };
+    });
+  }
+
   function recompute(force = false) {
-    model = buildItems(rows, currentIds());
+    const was = searching;
+    searching = ampSearch();
+    if (was !== searching) { force = true; document.querySelector("[data-amp-focus-root]")?.toggleAttribute("data-searching", searching); }
+    model = searching ? searchItems() : buildItems(rows, currentIds());
     const sig = modelSig();
     if (!force && !pending && sig === lastModelSig && document.querySelector("[data-amp-focus-root]")?.isConnected) return;
     lastModelSig = sig;
@@ -1617,6 +1666,7 @@
     for (const m of muts) {
       if (ours(m)) continue;
       const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      if (m.attributeName === "data-open") { structuralChange = true; searchFlip = true; continue; }
       const a = el?.closest?.("a[data-sidebar-thread-id]");
       if (a) touched.add(a);
       else if (m.type === "childList") structuralChange = true;
@@ -1627,6 +1677,10 @@
     // 150ms trailing debounce, but never more than 500ms behind a burst (streaming status lines).
     liveTimer = setTimeout(liveTick, Math.max(0, Math.min(150, 500 - (now - liveFirst))));
   }
+
+  let searchFlip = false;
+  // Typing in Amp's search box: Amp swaps its rows, the observer picks that up; this covers a query that leaves the same rows.
+  document.addEventListener("input", e => { if (e.target.matches?.('[data-testid="sidebar-list-search-input"]')) { clearTimeout(liveTimer); liveTimer = setTimeout(liveTick, 120); } }, true);
 
   async function liveTick() {
     liveFirst = 0;
@@ -1654,8 +1708,10 @@
     rows = now;
     syncActive();
     const holding = model.some(i => i.held || (i.children ?? []).some(c => c.held));
-    if (!changed.length && !structural && !holding) return;
-    recompute();
+    const flip = searchFlip;
+    searchFlip = false;
+    if (!changed.length && !structural && !holding && !flip && !searching) return;
+    recompute(flip || searching);
     // Detail only when state flags flip (not for every streamed status line); the 15s poll covers the rest.
     const toFetch = flipped.slice(0, 20);
     if (!toFetch.length) return;
@@ -1670,7 +1726,7 @@
     lastSigs = new Map([...rows].map(([id, r]) => [id, { sig: r.sig, flags: r.flags }]));
     // Observe the whole sidebar so a recreated Amp list (or our recreated container) is noticed.
     const sidebar = document.querySelector('[data-slot="sidebar"]');
-    new MutationObserver(onSidebarMutation).observe(sidebar, { subtree: true, childList: true, attributes: true, characterData: true, attributeFilter: ["class", "data-active"] });
+    new MutationObserver(onSidebarMutation).observe(sidebar, { subtree: true, childList: true, attributes: true, characterData: true, attributeFilter: ["class", "data-active", "data-thread-row-pinned", "data-open"] });
 
     // Navigation: SvelteKit uses pushState/replaceState. Move the highlight, and release any held (opened) row.
     let lastPath = location.pathname;
