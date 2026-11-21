@@ -1,0 +1,94 @@
+// A stand-in for Amp's sidebar, filled with made-up threads, that runs the real focus sidebar on top.
+// Serve the repo root and open /docs/demo/ (?tweak=off shows Amp's own list, ?mode=project|day picks the view).
+// docs/demo/shoot.mjs uses it to make the README screenshots, so nothing personal ever ends up in them.
+import { SPACES, THREADS } from "./threads.js";
+
+const params = new URLSearchParams(location.search);
+const MIN = 60_000;
+const iso = ago => new Date(Date.now() - ago * MIN).toISOString();
+const esc = s => String(s).replace(/[&<>"]/g, c => `&${{ "&": "amp", "<": "lt", ">": "gt", '"': "quot" }[c]};`);
+
+// ---------- prefs: start every load from the same state ----------
+for (const k of Object.keys(localStorage)) if (k.startsWith("amp-tweaks:")) localStorage.removeItem(k);
+const pref = (k, v) => localStorage.setItem(`amp-tweaks:${k}`, JSON.stringify(v));
+pref("focus.mode", params.get("mode") ?? "status");
+pref("focus.expanded", (params.get("expand") ?? "T-billing").split(",").filter(Boolean));
+pref("amp.menuClasses", { menu: "amp-menu", item: "amp-menu-item", sep: "amp-menu-sep" });
+
+// ---------- Amp's sidebar DOM (the attributes the tweak reads) ----------
+const HUES = ["#8b7cf6", "#5fa8d3", "#e0739a", "#59c08a", "#d6a038", "#7aa2f7", "#c08bd9", "#e58a5b"];
+const hue = id => HUES[[...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % HUES.length];
+const orb = c => `<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.6" ry="8.5"/><path d="M3.8 9.5h16.4M3.8 14.5h16.4"/></svg>`;
+const space = c => `<span data-thread-row-space-icon data-space-color="${c}"><svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.75" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/></svg></span>`;
+const unreadStates = new Set(["done", "asking", "approve"]);
+
+function row(t, depth = 0) {
+  const isSpace = t.id.startsWith("S-");
+  const icon = isSpace ? space(t.color) : orb(hue(t.id));
+  // Amp marks a running or failed thread by wrapping its icon.
+  const mark = t.state === "working" ? "data-thread-row-running-icon" : t.state === "error" ? "data-thread-row-error" : "";
+  const status = t.state === "error" ? t.error : t.status;
+  const kids = isSpace || t.kids?.length;
+  return `<a href="/threads/${t.id}" data-sidebar-thread-id="${t.id}" data-active="${!!t.active}" data-depth="${depth}" ${t.pinned ? "data-thread-row-pinned" : ""}>
+    <div data-thread-row-icon>${mark ? `<span ${mark}>${icon}</span>` : icon}<span data-thread-row-unread-badge class="${unreadStates.has(t.state) ? "" : "opacity-0"}"></span></div>
+    <div data-amp-text><span data-title-text>${esc(t.title)}</span>${status ? `<span data-thread-row-status-line>${esc(status)}</span>` : ""}</div>
+    ${kids ? `<button type="button" data-sidebar-subthreads-toggle class="amp-toggle" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></button>` : ""}
+  </a>`;
+}
+const family = (t, depth = 0) => row(t, depth) + (t.kids?.length ? `<div data-sidebar-subthreads-of="${t.id}">${t.kids.map(k => family(k, depth + 1)).join("")}</div>` : "");
+
+const FILTER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 6h18M7 12h10M10 18h4"/></svg>`;
+const needYou = [...SPACES.flatMap(s => s.kids), ...THREADS.flatMap(t => [t, ...(t.kids ?? [])])].filter(t => ["asking", "approve", "error", "done"].includes(t.state)).length;
+const running = [...SPACES.flatMap(s => s.kids), ...THREADS.flatMap(t => [t, ...(t.kids ?? [])])].filter(t => t.state === "working").length;
+
+document.body.innerHTML = `<div data-demo-window>
+  <div data-slot="sidebar">
+    <div data-amp-top><div class="thread-scrollable-tabs-container"><div class="thread-scrollable-tabs-scroll amp-tabs">
+      <button type="button" class="amp-chip" data-sidebar-activity-filter-needs><span data-chip-fill class="amp-chip-fill"></span><span class="relative">${needYou} Need You</span><i data-dot></i></button>
+      <button type="button" class="amp-chip" data-sidebar-activity-filter-running><span data-chip-fill class="amp-chip-fill"></span><span class="relative">${running} Running</span></button>
+    </div><button type="button" class="amp-icon-btn" data-sidebar-filter-menu aria-label="Filter">${FILTER}</button></div></div>
+    <div data-sidebar="group"><div data-testid="sidebar-thread-list">
+      <div data-testid="sidebar-list-search" data-open="false"><input data-testid="sidebar-list-search-input"></div>
+      <div data-amp-heading>Spaces</div>
+      ${SPACES.map(s => family(s)).join("")}
+      <div data-amp-heading>Threads</div>
+      ${THREADS.map(t => family(t)).join("")}
+    </div></div>
+  </div>
+</div>`;
+
+// Links in a demo go nowhere.
+document.addEventListener("click", e => { if (e.target.closest("a[href]")) e.preventDefault(); }, true);
+
+// ---------- Amp's API and the proxy, answered from the made-up threads ----------
+const all = [...SPACES.flatMap(s => [s, ...s.kids]), ...THREADS.flatMap(t => [t, ...(t.kids ?? [])])];
+const byId = new Map(all.map(t => [t.id, t]));
+const STATE = { working: "working", stalled: "working", approve: "awaiting_approval", error: "error" };
+
+function detail(t) {
+  const at = iso(t.ago);
+  return {
+    id: t.id, title: t.title, creatorUserID: "U-demo", updatedAt: at,
+    meta: {
+      lastKnownAgentState: { state: STATE[t.state] ?? "idle", updatedAt: at, ...(t.error ? { error: { message: t.error } } : {}) },
+      statusMessage: t.status ? { text: t.status, waitingOnInput: t.state === "asking", updatedAt: at } : undefined,
+      lastUserMessageAt: at,
+      threadModel: t.model ? { model: t.model, reasoningEffort: t.effort } : undefined,
+    },
+    env: { initial: { trees: t.repo ? [{ repository: { url: `https://github.com/acme/${t.repo}.git`, ref: `refs/heads/${t.branch ?? "main"}` } }] : [] } },
+  };
+}
+
+const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const realFetch = window.fetch.bind(window);
+window.fetch = async (input, init) => {
+  const url = new URL(typeof input === "string" ? input : input.url, location.href);
+  if (url.pathname === "/__amp-tweaks/data/threads.json") return json(all.map(t => ({ id: t.id, updated: iso(t.ago) })));
+  if (url.pathname.startsWith("/__amp-tweaks/")) return new Response(null, { status: 204 });
+  const m = url.pathname.match(/^\/api\/threads\/([^/]+)$/);
+  if (m) return byId.has(m[1]) ? json(detail(byId.get(m[1]))) : json({ error: "not found" }, 404);
+  return realFetch(input, init);
+};
+
+if (params.get("tweak") !== "off") await import("../../tweaks/focus-sidebar/index.js");
+document.documentElement.dataset.demoReady = "";

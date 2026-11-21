@@ -39,6 +39,10 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 | Thread data from the proxy and Amp's API | `data.js` |
 | Look and feel | `focus-sidebar.css` |
 
+## Demo page and screenshots
+
+`docs/demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve the repo root (`python3 -m http.server`) and open `/docs/demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node docs/demo/shoot.mjs [name…]` re-renders the README screenshots in `docs/images/` with headless Chrome. Never screenshot the live app for the README: it shows real threads.
+
 ## Useful endpoints
 
 - `GET /__amp-tweaks/data/threads.json`: thread ids and updated times from the `amp` CLI.
