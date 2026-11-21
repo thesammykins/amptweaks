@@ -24,3 +24,5 @@ After enabling, connections Amp already has open bypass the proxy until its WebK
 - Sidebar rows are `a[data-sidebar-thread-id]` with `data-thread-row-*` attributes. A tweak that renders its own rows (like `focus-sidebar.js`) should route clicks and the context menu through Amp's hidden original rows: Space threads 500 if you follow their href directly, and Amp's row buttons ignore synthetic `.click()`.
 - Amp's thread context menu opens on a hidden original row if you dispatch `pointerdown`, then on the next frame a right-button `mousedown` and `contextmenu`, at the pointer's coordinates.
 - Upstream 5xx pages on ampcode.com are logged with their error text, and the last one is saved to `~/Library/Logs/amp-tweaks-reports/upstream-<status>.html`.
+- Uncaught errors from tweak scripts are reported by the loader to `~/Library/Logs/amp-tweaks-reports/errors.json`.
+- HTML page loads are fetched by the addon over a fresh connection (retried twice) instead of mitmproxy's pooled HTTP/2 upstream, which can fail in-flight requests and show a 502 page.

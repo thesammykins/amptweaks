@@ -156,11 +156,53 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
     respond(flow, 200, path.read_bytes(), f"{ctype}; charset=utf-8")
 
 
+# Page loads (HTML documents) bypass mitmproxy's pooled upstream HTTP/2 connections, which can fail in-flight
+# requests ("RECV_PING in state CLOSED") and leave the app on a 502 page. One fresh HTTP/1.1 request, retried.
+HOP_BY_HOP = {"connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade", "te", "trailer", "host", "accept-encoding", "content-length"}
+
+
+def _fetch_document(host: str, path: str, headers: list[tuple[str, str]]) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
+    import http.client
+    import ssl
+    import certifi
+
+    context = ssl.create_default_context(cafile=certifi.where())
+    last: Exception | None = None
+    for attempt in range(3):
+        conn = http.client.HTTPSConnection(host, 443, timeout=20, context=context)
+        try:
+            conn.putrequest("GET", path, skip_host=False, skip_accept_encoding=True)
+            for k, v in headers:
+                conn.putheader(k, v)
+            conn.putheader("Accept-Encoding", "identity")
+            conn.endheaders()
+            r = conn.getresponse()
+            body = r.read()
+            out = [(k.encode(), v.encode("latin-1")) for k, v in r.getheaders() if k.lower() not in HOP_BY_HOP]
+            return r.status, out, body
+        except Exception as e:  # noqa: BLE001 — retried, then surfaced
+            last = e
+            time.sleep(0.25 * (attempt + 1))
+        finally:
+            conn.close()
+    raise last  # type: ignore[misc]
+
+
 async def request(flow: http.HTTPFlow) -> None:
     if flow.request.path.split("?")[0] == "/proxy.pac" and not HOST_RE.search(flow.request.pretty_host):
         return respond(flow, 200, PAC, "application/x-ns-proxy-autoconfig")
-    if HOST_RE.search(flow.request.pretty_host) and flow.request.path.startswith(PREFIX):
-        await serve_tweak(flow, flow.request.path[len(PREFIX):].split("?")[0])
+    if not HOST_RE.search(flow.request.pretty_host):
+        return
+    if flow.request.path.startswith(PREFIX):
+        return await serve_tweak(flow, flow.request.path[len(PREFIX):].split("?")[0])
+    if flow.request.method == "GET" and flow.request.headers.get("sec-fetch-dest") == "document":
+        headers = [(k, v) for k, v in flow.request.headers.items(multi=True) if not k.startswith(":") and k.lower() not in HOP_BY_HOP]
+        try:
+            status, out, body = await asyncio.to_thread(_fetch_document, flow.request.pretty_host, flow.request.path, headers)
+        except Exception as e:  # noqa: BLE001 — fall back to mitmproxy's own upstream path
+            log.warning("amp-tweaks: document fetch failed after retries, falling back: %s %s", flow.request.path[:120], e)
+            return
+        flow.response = http.Response.make(status, body, http.Headers(out))
 
 
 def load(loader) -> None:
@@ -210,6 +252,8 @@ def response(flow: http.HTTPFlow) -> None:
     if "text/html" not in resp.headers.get("content-type", ""):
         return
     html = resp.get_text(strict=False) or ""
+    if TAG in html:
+        return
     head = re.search(r"<head[^>]*>", html, re.I)
     if not head:
         log.warning("amp-tweaks: no <head> in %s", flow.request.pretty_url)

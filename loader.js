@@ -2,6 +2,19 @@
 (() => {
   const BASE = "/__amp-tweaks/";
   const log = (...a) => console.info("[amp-tweaks]", ...a);
+
+  // Uncaught errors from tweak scripts are reported to ~/Library/Logs/amp-tweaks-reports/errors.json.
+  const report = (kind, detail) => {
+    try { navigator.sendBeacon?.(`${BASE}report?name=errors`, JSON.stringify({ kind, ...detail, url: location.href, at: new Date().toISOString() })); } catch {}
+  };
+  addEventListener("error", e => {
+    if (!String(e.filename ?? "").includes(BASE)) return;
+    report("error", { message: e.message, file: e.filename, line: e.lineno, col: e.colno, stack: e.error?.stack });
+  });
+  addEventListener("unhandledrejection", e => {
+    const stack = String(e.reason?.stack ?? "");
+    if (stack.includes(BASE)) report("rejection", { message: String(e.reason?.message ?? e.reason), stack });
+  });
   const url = (name, v) => `${BASE}${encodeURIComponent(name)}?v=${v}`;
 
   // The web client tells the native shell whether its WKWebView is inspectable
