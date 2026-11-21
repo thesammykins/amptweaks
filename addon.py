@@ -31,7 +31,7 @@ TAG = f'<script src="{PREFIX}loader.js"></script>'
 log = logging.getLogger("amp-tweaks")
 
 PAC = f"""function FindProxyForURL(url, host) {{
-  if (host === "ampcode.com" || dnsDomainIs(host, ".ampcode.com")) return "PROXY 127.0.0.1:{PROXY_PORT}; DIRECT";
+  if (host === "ampcode.com") return "PROXY 127.0.0.1:{PROXY_PORT}; DIRECT";
   return "DIRECT";
 }}
 """
@@ -44,36 +44,50 @@ def _disabled() -> set[str]:
     return {line.strip() for line in f.read_text().splitlines() if line.strip() and not line.startswith("#")}
 
 
-def tweak_files() -> list[Path]:
-    """Enabled tweaks by name (user overrides bundled), sorted by name so load order is predictable."""
-    by_name: dict[str, Path] = {}
-    for d in (BUNDLED_DIR, TWEAKS_DIR):
-        if not d.is_dir():
+def _assets(d: Path) -> list[Path]:
+    return sorted(p for p in d.iterdir() if p.is_file() and p.suffix in (".css", ".js") and not p.name.startswith(("_", ".")))
+
+
+def tweak_files() -> list[tuple[str, Path]]:
+    """Enabled tweak files as (served name, path), sorted by name so load order is predictable.
+
+    A tweak is a folder (tweaks/<name>/*.js|css, or ~/.amp-tweaks/<name>/), served as "<name>/<file>".
+    Loose files in ~/.amp-tweaks also work (served by file name). A personal folder overrides the bundled
+    one with the same name; names in ~/.amp-tweaks/disabled (folder or file) are skipped."""
+    folders: dict[str, Path] = {}
+    loose: dict[str, Path] = {}
+    for root in (BUNDLED_DIR, TWEAKS_DIR):
+        if not root.is_dir():
             continue
-        for p in d.iterdir():
-            if p.is_file() and p.suffix in (".css", ".js") and not p.name.startswith(("_", ".")):
-                by_name[p.name] = p
+        for entry in root.iterdir():
+            if entry.name.startswith(("_", ".")):
+                continue
+            if entry.is_dir():
+                folders[entry.name] = entry
+            elif root == TWEAKS_DIR and entry.is_file() and entry.suffix in (".css", ".js"):
+                loose[entry.name] = entry
     off = _disabled()
-    # "focus-sidebar" in the disabled list turns off both focus-sidebar.js and focus-sidebar.css.
-    return [by_name[n] for n in sorted(by_name) if n not in off and Path(n).stem not in off]
+    out = [(f"{name}/{p.name}", p) for name, d in folders.items() if name not in off for p in _assets(d)]
+    out += [(n, p) for n, p in loose.items() if n not in off and Path(n).stem not in off]
+    return sorted(out)
 
 
-def version(files: list[Path]) -> str:
+def version(files: list[tuple[str, Path]]) -> str:
     """Change detector from (name, mtime, size): polled every second per window, so no file reads."""
     digest = hashlib.sha1()
-    for p in files:
+    for name, p in files:
         st = p.stat()
-        digest.update(f"{p.name}\0{st.st_mtime_ns}\0{st.st_size}\n".encode())
+        digest.update(f"{name}\0{st.st_mtime_ns}\0{st.st_size}\n".encode())
     return digest.hexdigest()[:12]
 
 
 def manifest() -> dict:
     files = tweak_files()
-    css = [p for p in files if p.suffix == ".css"]
-    js = [p for p in files if p.suffix == ".js"]
+    css = [f for f in files if f[1].suffix == ".css"]
+    js = [f for f in files if f[1].suffix == ".js"]
     return {
-        "css": [p.name for p in css],
-        "js": [p.name for p in js],
+        "css": [n for n, _ in css],
+        "js": [n for n, _ in js],
         "cssVersion": version(css),
         "jsVersion": version(js),
     }
@@ -181,7 +195,9 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
     if name == "manifest.json":
         return respond(flow, 200, json.dumps(manifest()), "application/json")
     # Serve only enabled tweaks, looked up by exact name (no paths), so nothing else on disk is reachable.
-    path = next((p for p in tweak_files() if p.name == name), None)
+    from urllib.parse import unquote
+    name = unquote(name)
+    path = next((p for n, p in tweak_files() if n == name), None)
     if path is None:
         log.warning("amp-tweaks: refused %s", name)
         return respond(flow, 404, "not a tweak", "text/plain")
@@ -250,6 +266,9 @@ def running() -> None:
     # Per-request flow logging is noise (and disk I/O); our own warnings still log.
     ctx.options.flow_detail = 0
     ctx.options.termlog_verbosity = "warn"  # drops mitmproxy's per-response info lines; our events log at warning
+    # Answer the client's TLS handshake straight away from our CA (by SNI) instead of first connecting to
+    # ampcode.com to copy its certificate; with lazy connections, upstream is only dialled when a request needs it.
+    ctx.options.upstream_cert = False
 
 
 def responseheaders(flow: http.HTTPFlow) -> None:

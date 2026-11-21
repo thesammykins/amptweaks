@@ -53,7 +53,7 @@ case $cmd in
       --set connection_strategy=lazy \
       --set termlog_verbosity=warn \
       --set flow_detail=0 \
-      --allow-hosts '^((.+\.)?ampcode\.com|127\.0\.0\.1)(:\d+)?$' \
+      --allow-hosts '^(ampcode\.com|127\.0\.0\.1)(:\d+)?$' \
       --mode "regular@$PORT" \
       --mode "reverse:http://127.0.0.1:9@$PAC_PORT" \
       -s "$ROOT/addon.py"
@@ -105,7 +105,7 @@ PLIST
       networksetup -setautoproxyurl "$svc" "$PAC_URL"
       networksetup -setautoproxystate "$svc" on
     done
-    say "routing only *.ampcode.com through 127.0.0.1:$PORT (everything else goes direct)"
+    say "routing only ampcode.com through 127.0.0.1:$PORT (everything else goes direct)"
     if [[ -d "$HOME/.local/bin" && ! -e "$HOME/.local/bin/amp-tweaks" ]]; then
       ln -s "$ROOT/bin/amp-tweaks" "$HOME/.local/bin/amp-tweaks" && say "linked amp-tweaks into ~/.local/bin"
     fi
@@ -148,12 +148,14 @@ PLIST
     touch "$disabled"
     case $sub in
       list)
-        for f in "$ROOT"/tweaks/*.(js|css)(N) "$TWEAKS_DIR"/*.(js|css)(N); do
-          n=${f:t}
-          [[ $n == _* ]] && continue
-          src=$([[ $f == $ROOT/* ]] && echo bundled || echo yours)
+        # A tweak is a folder (bundled in tweaks/, or yours in ~/.amp-tweaks); loose files in ~/.amp-tweaks also count.
+        {
+          for d in "$ROOT"/tweaks/*(/N); do print -r -- "${d:t} bundled"; done
+          for d in "$TWEAKS_DIR"/*(/N); do [[ ${d:t} == _* ]] || print -r -- "${d:t} yours"; done
+          for f in "$TWEAKS_DIR"/*.(js|css)(N); do [[ ${f:t} == _* ]] || print -r -- "${f:t} yours"; done
+        } | sort -k1,1 -k2,2r | sort -u -k1,1 | while read -r n src; do
           if grep -qxF -e "$n" -e "${n:r}" "$disabled"; then say "  off  $n ($src)"; else say "  on   $n ($src)"; fi
-        done | sort -u -k2,2
+        done
         ;;
       disable) [[ -n ${2:-} ]] || die "usage: amp-tweaks tweaks disable <name>"; grep -qxF "$2" "$disabled" || print -r -- "$2" >> "$disabled"; say "disabled $2" ;;
       enable)  [[ -n ${2:-} ]] || die "usage: amp-tweaks tweaks enable <name>"; grep -vxF "$2" "$disabled" > "$disabled.tmp" || true; mv "$disabled.tmp" "$disabled"; say "enabled $2" ;;

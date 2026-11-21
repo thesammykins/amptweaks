@@ -652,7 +652,8 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 [data-amp-focus-child], [data-kids-more], [data-finished] { position: relative; }
 [data-amp-focus-child] { margin-left: calc((var(--d, 1) - 1) * var(--indent)); }
 [data-tree] { position: absolute; inset: 0; pointer-events: none; display: none; }
-[data-amp-focus-item][data-tree-on] [data-tree] { display: block; }
+/* Only the family's own branches (sub-threads, "Show more", "N finished"); the finished rows draw their own subtree. */
+[data-amp-focus-item][data-tree-on] > [data-family] > [data-family-inner] > * > [data-tree] { display: block; }
 [data-tree] > span { position: absolute; }
 [data-rail] { top: 0; bottom: 0; left: calc(var(--tree-x) - var(--up) * var(--indent)); border-left: 1px solid var(--tree); }
 [data-tail] { top: 0; bottom: 0; left: var(--tree-x); border-left: 1px solid var(--tree); }
@@ -697,3 +698,26 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 @media (pointer: fine) { [data-kids-more]:hover { color: var(--color-foreground); } }
 [data-kids-more]:focus-visible { outline: 2px solid var(--color-ring); outline-offset: -2px; border-radius: 0.375rem; }
 @media (pointer: coarse) { [data-kids-more] { min-height: 2.75rem; } }
+
+/* The finished list continues the family tree from the "N finished" chevron. */
+/* Indent with padding, not margin: the list clips overflow (for its open animation), and the guide lines
+   sit left of the rows, inside this padding. */
+[data-finished-list] { padding-left: var(--indent); }
+[data-amp-focus-finished], [data-finished-more] { position: relative; }
+[data-amp-focus-finished], [data-finished-list] > [data-finished-more] {
+  /* chevron centre: toggle inset + half the 0.6875rem chevron, relative to the indented list */
+  --tree-x: calc(var(--row-x) + 0.34375rem - var(--indent));
+}
+[data-finished-list] > [data-finished-more] { margin-left: 0; }
+[data-finished][data-sub-tree][data-open] [data-finished-list] [data-tree] { display: block; }
+[data-finished-list] [data-finished-more] > [data-tree] { --elbow-y: calc(0.125rem + var(--text-xs--line-height) / 2); }
+[data-finished][data-sub-tree][data-open] > [data-finished-toggle] { position: relative; }
+[data-finished][data-sub-tree][data-open] > [data-finished-toggle]::after {
+  content: "";
+  position: absolute;
+  left: calc(var(--row-x) + 0.34375rem);
+  top: calc(0.125rem + var(--text-xs--line-height) / 2 + 0.375rem);
+  bottom: 0;
+  border-left: 1px solid var(--tree);
+  pointer-events: none;
+}

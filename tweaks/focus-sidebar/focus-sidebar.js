@@ -654,26 +654,36 @@
     const shown = all.slice(0, prefs.finishedShown.get(it.id) ?? FINISHED_PAGE);
     const existing = new Map([...list.querySelectorAll(":scope > [data-amp-focus-finished][data-thread-id]")].map(c => [c.dataset.threadId, c]));
     let prev = null;
-    for (const f of shown) {
+    const rest = all.length - shown.length;
+    // The finished list continues the family tree from the "N finished" chevron (lines when 2+ branches).
+    box.toggleAttribute("data-sub-tree", shown.length + (rest > 0 ? 1 : 0) > 1);
+    for (const [n, f] of shown.entries()) {
       let el = existing.get(f.id);
       if (el) existing.delete(f.id);
       else {
         el = document.createElement("div");
         el.setAttribute("data-amp-focus-finished", "");
         el.dataset.threadId = f.id;
-        el.innerHTML = `<div data-amp-focus-row role="link" tabindex="-1"></div>`;
+        el.innerHTML = `<span data-tree aria-hidden="true"></span><div data-amp-focus-row role="link" tabindex="-1"></div>`;
       }
-      applyRow(el.firstElementChild, f, { child: true, cls, mode: prefs.mode });
+      applyRow(el.querySelector(":scope > [data-amp-focus-row]"), f, { child: true, cls, mode: prefs.mode });
+      applyTree(el, 1, n === shown.length - 1 && rest <= 0, []);
       const want = prev ? prev.nextElementSibling : list.firstElementChild;
       if (el !== want) list.insertBefore(el, want);
       prev = el;
     }
     for (const el of existing.values()) el.remove();
     let more = list.querySelector(":scope > [data-finished-more]");
-    const rest = all.length - shown.length;
     if (rest > 0) {
-      if (!more) { more = document.createElement("button"); more.type = "button"; more.tabIndex = -1; more.setAttribute("data-finished-more", ""); }
-      setText(more, `Show ${Math.min(rest, 20)} more`);
+      if (!more) {
+        more = document.createElement("button");
+        more.type = "button";
+        more.tabIndex = -1;
+        more.setAttribute("data-finished-more", "");
+        more.innerHTML = `<span data-tree aria-hidden="true"></span><span data-label></span>`;
+      }
+      applyTree(more, 1, true, []);
+      setText(more.querySelector("[data-label]"), `Show ${Math.min(rest, 20)} more`);
       if (list.lastElementChild !== more) list.appendChild(more);
     } else more?.remove();
   }
@@ -1512,11 +1522,13 @@
   }, 60_000);
 
   let busy = false;
+  let lastFullRead = 0;
   async function refresh(forceRender = false) {
     if (busy || document.hidden) return;
     busy = true;
     try {
-      rows = readAmp();
+      // The live observer keeps `rows` current; a full re-read is a once-a-minute safety net.
+      if (!rows.size || Date.now() - lastFullRead > 60_000) { rows = readAmp(); lastFullRead = Date.now(); }
       sweepDismissed();
       const updatedById = new Map(cli.map(t => [t.id, t.updated]));
       if (!me) {

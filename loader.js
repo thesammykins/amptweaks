@@ -69,6 +69,7 @@
   // Live reload: CSS swaps in place; any JS change reloads the page.
   let { cssVersion, jsVersion } = m;
   setInterval(async () => {
+    if (document.hidden) return;
     try {
       const next = await (await fetch(`${BASE}manifest.json?t=${Date.now()}`, { cache: "no-store" })).json();
       if (next.jsVersion !== jsVersion) { log("js changed, reloading"); location.reload(); return; }
