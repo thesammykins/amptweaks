@@ -56,15 +56,18 @@
   const saveSnoozed = () => store.set("focus.snoozed", Object.fromEntries(snoozed));
 
   // ---------- detail cache (slim, persisted so reloads don't refetch everything) ----------
-  const cache = new Map(Object.entries(store.get("focus.cache.v2", {})));
+  const cache = new Map(Object.entries(store.get("focus.cache.v3", {})));
   let saveTimer;
   const saveCache = () => {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       const cutoff = Date.now() - RECENT_MS;
-      store.set("focus.cache.v2", Object.fromEntries([...cache].filter(([, v]) => v.fetchedAt > cutoff && v.d)));
+      store.set("focus.cache.v3", Object.fromEntries([...cache].filter(([, v]) => v.fetchedAt > cutoff && v.d)));
     }, 3000);
   };
+
+  // "Tachi.local" / "rocciemac.sammyk.in" → "Tachi" / "rocciemac": the machine, not its network name.
+  const machineName = host => (host ? host.split(".")[0] || null : null);
 
   function slim(d) {
     const m = d.meta ?? {};
@@ -79,8 +82,9 @@
       model: tm?.model, effort: tm?.reasoningEffort,
       repo: tree?.repository?.url?.replace(/\.git$/, "").split("/").pop() ?? (tree?.displayName && tree.displayName !== "workspace" ? tree.displayName : null),
       branch: tree?.repository?.ref?.replace(/^refs\/heads\//, ""),
-      worktree: /worktree/i.test(tree?.uri ?? ""),
-      onMac: !!d.env?.initial?.runnerID,
+      // Runner threads: the machine's own hostname (e.g. "Tachi"). Orb threads have no runner and show nothing.
+      runner: d.env?.initial?.runnerID ? machineName(d.env.initial.hostname) : null,
+      worktree: !!d.env?.initial?.runnerWorktree || /worktree/i.test(tree?.uri ?? ""),
     };
   }
 
@@ -118,6 +122,7 @@
     if (inflight.has(id)) { refetch.add(id); return; }
     inflight.add(id);
     try {
+      perf.fetches++;
       const res = await fetch(`/api/threads/${id}`, { cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (res.status === 401 || res.status === 429 || res.status >= 500) {
         backoffUntil = Date.now() + (res.status >= 500 ? 20_000 : 60_000);
@@ -405,6 +410,7 @@
     archive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M10 13h4"/></svg>',
     snooze: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M5 3 2 6"/><path d="m19 3 3 3"/></svg>',
     branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg>',
+    runner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>',
     worktree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h7l2 2h7v10H4z"/><path d="M9 13h6"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   };
@@ -431,7 +437,7 @@
       ["space", it.space && it.total ? `${it.total} thread${it.total === 1 ? "" : "s"}` : ""],
       ["tree", show.tree ? branch : ""],
       ["tree", show.tree && d.worktree ? `<span data-branch>${ICON.worktree}worktree</span>` : ""],
-      ["tree", show.tree && d.onMac ? "This Mac" : ""],
+      ["runner", show.tree && d.runner ? `<span data-branch>${ICON.runner}${esc(d.runner)}</span>` : ""],
     ].filter(([, h]) => h);
     // Model always last: it's the first thing to go when the sidebar narrows.
     if (family && it.kind !== "parent") list.push(["family", esc(family)]);
@@ -620,7 +626,8 @@
     for (const [id, r] of rows) {
       if (r.root !== rootId || activeIds.has(id) || dismissed.has(id)) continue;
       const d = cache.get(id)?.d;
-      out.push({ id, d: d ?? { title: r.title || "Thread" }, kind: "finished", context: r.status || d?.status || "", since: d?.updatedAt ?? updated.get(id) ?? null, href: r.href, inAmp: true });
+      // When the agent last did something; archive/unarchive bump updatedAt, so it's only a fallback.
+      out.push({ id, d: d ?? { title: r.title || "Thread" }, kind: "finished", context: r.status || d?.status || "", since: d?.agentAt ?? d?.updatedAt ?? updated.get(id) ?? null, href: r.href, inAmp: true });
     }
     return out.sort((a, b) => (Date.parse(b.since) || 0) - (Date.parse(a.since) || 0));
   }
@@ -733,7 +740,17 @@
     render(true);
   }
 
+  // Self-timing (cheap): read via the "focus-perf" report to see what the sidebar costs during real use.
+  const perf = { renders: 0, renderMs: 0, renderMax: 0, moves: 0, live: 0, fetches: 0, since: Date.now() };
   function renderUnsafe(force) {
+    const t0 = performance.now();
+    try { return renderBody(force); } finally {
+      const ms = performance.now() - t0;
+      perf.renders++; perf.renderMs += ms; perf.renderMax = Math.max(perf.renderMax, ms);
+    }
+  }
+
+  function renderBody(force) {
     const root = ensureRoot();
     if (!root) return;
     const list = root.querySelector("[data-amp-focus-list]");
@@ -758,6 +775,7 @@
     } else { pending = false; list._layout = layout; }
     const focused = list.contains(document.activeElement) ? document.activeElement : null;
     const animate = !reduceMotion.matches && list.childElementCount > 0;
+    if (moved) perf.moves++;
 
     const before = new Map();
     if (moved && animate) list.querySelectorAll("[data-amp-focus-item][data-thread-id], [data-amp-focus-heading]").forEach(el => before.set(el, el.getBoundingClientRect().top));
@@ -1473,10 +1491,25 @@
     }
   }
 
+  // Skip renders when nothing visible changed (the 5s refresh usually finds nothing new).
+  let lastModelSig = "";
+  const modelSig = () => JSON.stringify([prefs.mode, prefs.focus, model.map(i => [i.id, i.kind, i.lead, i.context, i.since, i.d.title, i.held, i.finished, i.total, (i.children ?? []).map(c => [c.id, c.kind, c.context, c.since])])]);
   function recompute(force = false) {
     model = buildItems(rows, currentIds());
+    const sig = modelSig();
+    if (!force && !pending && sig === lastModelSig && document.querySelector("[data-amp-focus-root]")?.isConnected) return;
+    lastModelSig = sig;
     render(force);
   }
+  // Relative times ("3m", "2h") tick in place once a minute, without a render.
+  setInterval(() => {
+    if (document.hidden) return;
+    const byId = new Map(model.flatMap(i => [i, ...(i.children ?? [])]).map(i => [i.id, i]));
+    document.querySelectorAll("[data-amp-focus-root] [data-thread-id] > [data-amp-focus-row] [data-time]").forEach(t => {
+      const it = byId.get(t.closest("[data-thread-id]").dataset.threadId);
+      if (it) setText(t, ago(it.since));
+    });
+  }, 60_000);
 
   let busy = false;
   async function refresh(forceRender = false) {
@@ -1527,6 +1560,7 @@
 
   async function liveTick() {
     liveFirst = 0;
+    perf.live++;
     // Re-read only the Amp rows the mutations touched, unless the list's structure changed.
     const full = structuralChange || touched.size > 40;
     const touchedNow = touched;
@@ -1613,7 +1647,12 @@
       archiveItems([{ el, id, point: { x: r.left + r.width / 2, y: r.top + r.height / 2 } }]);
       return true;
     };
-    window.__ampFocus = { archive, archiveById, archiveAllDone, archiveAndAdvance, undoLast, refresh, openAmpMenu, navigate, get model() { return model; }, setMode(m) { prefs.mode = m; recompute(true); } };
+    setInterval(() => {
+      if (document.hidden || !store.get("focus.perfReport", false)) return;
+      const secs = (Date.now() - perf.since) / 1000;
+      fetch("/__amp-tweaks/report?name=focus-perf", { method: "POST", body: JSON.stringify({ secs: Math.round(secs), ...perf, renderAvgMs: +(perf.renderMs / Math.max(1, perf.renders)).toFixed(2), renderMax: +perf.renderMax.toFixed(1), renderMs: Math.round(perf.renderMs) }) });
+    }, 30_000);
+    window.__ampFocus = { perf, archive, archiveById, archiveAllDone, archiveAndAdvance, undoLast, refresh, openAmpMenu, navigate, get model() { return model; }, setMode(m) { prefs.mode = m; recompute(true); } };
 
     (async () => {
       await loadCli();

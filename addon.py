@@ -264,6 +264,13 @@ def responseheaders(flow: http.HTTPFlow) -> None:
     resp.stream = True
 
 
+def websocket_message(flow: http.HTTPFlow) -> None:
+    """mitmproxy keeps every websocket message on the flow for the life of the connection. Amp's thread
+    streams are long-lived and chatty, so memory (and GC pauses) grow with uptime. Nothing here reads them."""
+    if flow.websocket and len(flow.websocket.messages) > 1:
+        del flow.websocket.messages[:-1]
+
+
 def error(flow: http.HTTPFlow) -> None:
     """Connection-level failures (resets, timeouts) on ampcode.com, so they're attributable."""
     if HOST_RE.search(flow.request.pretty_host):
