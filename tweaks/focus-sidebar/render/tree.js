@@ -5,7 +5,7 @@ import { setHTML, setText } from "./dom-util.js";
 import { leave, render } from "./list.js";
 import { applyRow, createChild } from "./rows.js";
 import { S } from "../state.js";
-import { cache, prefs, store } from "../store.js";
+import { cache, prefs, saveIds } from "../store.js";
 
  // indentation stops here so deep trees don't run off a narrow sidebar
 
@@ -189,6 +189,6 @@ export function applyFinished(inner, it, cls, kids) {
 
 export function setFinishedOpen(id, open) {
   open ? prefs.finishedOpen.add(id) : prefs.finishedOpen.delete(id);
-  store.set("focus.finishedOpen", [...prefs.finishedOpen]);
+  saveIds("focus.finishedOpen", prefs.finishedOpen);
   render(true);
 }

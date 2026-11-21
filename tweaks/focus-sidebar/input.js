@@ -7,7 +7,7 @@ import { applyFilter, menuHTML, openMenu } from "./menu.js";
 import { isShown, recover, render, swipe } from "./render/list.js";
 import { setFinishedOpen } from "./render/tree.js";
 import { S } from "./state.js";
-import { applyMode, prefs, store } from "./store.js";
+import { applyMode, prefs, saveIds, store } from "./store.js";
 
 // ---------- trackpad swipe (Mail-style): left = archive tray / full archive, right = snooze ----------
 export const coarse = matchMedia("(pointer: coarse)");
@@ -111,7 +111,7 @@ export function onRowKey(e) {
       if (!item || holder !== item || !item.querySelector(":scope > [data-family]:not([hidden])")) return false;
       if (prefs.expanded.has(id) === open) return false;
       open ? prefs.expanded.add(id) : prefs.expanded.delete(id);
-      store.set("focus.expanded", [...prefs.expanded]);
+      saveIds("focus.expanded", prefs.expanded);
       item.toggleAttribute("data-expanded", open);
       item.querySelector("[data-family-toggle]")?.setAttribute("aria-expanded", String(open));
       return true;
@@ -193,7 +193,7 @@ export function wireRoot(root) {
       const item = toggle.closest("[data-amp-focus-item]");
       const id = item.dataset.threadId;
       prefs.expanded.has(id) ? prefs.expanded.delete(id) : prefs.expanded.add(id);
-      store.set("focus.expanded", [...prefs.expanded]);
+      saveIds("focus.expanded", prefs.expanded);
       item.toggleAttribute("data-expanded", prefs.expanded.has(id));
       toggle.setAttribute("aria-expanded", String(prefs.expanded.has(id)));
       return;

@@ -8,6 +8,13 @@ export const store = {
   set(k, v) { try { localStorage.setItem(`amp-tweaks:${k}`, JSON.stringify(v)); } catch {} },
 };
 
+// Nothing persisted outlives the age window: entries for threads that were archived or deleted age out.
+const fresh = (entries, at) => entries.filter(([, v]) => at(v) > Date.now() - RECENT_MS);
+
+// Remembered open families, newest last; capped so ids of long-gone threads don't build up.
+const MAX_IDS = 200;
+export const saveIds = (k, set) => store.set(k, [...set].slice(-MAX_IDS));
+
 export const prefs = {
   focus: store.get("focus.on", true),
   mode: MODES[store.get("focus.mode", "status")] ? store.get("focus.mode", "status") : "status",
@@ -47,20 +54,17 @@ prefs.display = { ...DEFAULT_DISPLAY, ...store.get("focus.display", {}) };
 export const applyMode = () => (document.documentElement.dataset.ampFocus = prefs.focus ? "on" : "off");
 
 // Snoozed threads stay hidden until something in them changes (Amp's row signals or the thread's updatedAt).
-export const snoozed = new Map(Object.entries(store.get("focus.snoozed", {})));
+export const snoozed = new Map(fresh(Object.entries(store.get("focus.snoozed", {})), v => v.at ?? 0));
 
 export const saveSnoozed = () => store.set("focus.snoozed", Object.fromEntries(snoozed));
 
 // ---------- detail cache (slim, persisted so reloads don't refetch everything) ----------
-export const cache = new Map(Object.entries(store.get("focus.cache.v3", {})));
-
-
+export const cache = new Map(fresh(Object.entries(store.get("focus.cache.v3", {})), v => v.fetchedAt ?? 0));
 
 export const saveCache = () => {
   clearTimeout(S.saveTimer);
   S.saveTimer = setTimeout(() => {
-    const cutoff = Date.now() - RECENT_MS;
-    store.set("focus.cache.v3", Object.fromEntries([...cache].filter(([, v]) => v.fetchedAt > cutoff && v.d)));
+    store.set("focus.cache.v3", Object.fromEntries(fresh([...cache], v => v.fetchedAt ?? 0).filter(([, v]) => v.d)));
   }, 3000);
 };
 

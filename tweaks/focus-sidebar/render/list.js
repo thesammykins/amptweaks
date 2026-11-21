@@ -60,7 +60,7 @@ export function render(force = false) {
     document.documentElement.dataset.ampFocus = "off";
     fetch("/__amp-tweaks/report?name=focus-error", { method: "POST", body: JSON.stringify({ message: String(e), stack: e?.stack, url: location.href }) });
     // Retry a few times on our own; after that, wait for the Focus toggle.
-    if (S.recoveries < 3) setTimeout(() => { if (S.failed) { S.recoverieses++; recover(); } }, 10_000);
+    if (S.recoveries < 3) setTimeout(() => { if (S.failed) { S.recoveries++; recover(); } }, 10_000);
   }
 }
 

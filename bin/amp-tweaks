@@ -48,6 +48,8 @@ cmd=${1:-help}
 case $cmd in
   run)
     [[ -f "$CA_DIR/mitmproxy-ca.pem" ]] || die "no CA yet; run: amp-tweaks enable"
+    # launchd appends to the log forever; start fresh once it passes 2 MB (in place, so launchd's handle stays valid).
+    [[ -f "$LOG" ]] && (( $(stat -f %z "$LOG") > 2097152 )) && : > "$LOG"
     exec mitmdump \
       --set confdir="$CA_DIR" \
       --set connection_strategy=lazy \
