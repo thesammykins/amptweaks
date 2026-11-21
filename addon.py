@@ -100,7 +100,27 @@ async def threads_json() -> bytes:
     return _threads_cache[1]
 
 
+THREAD_ID = re.compile(r"^T-[0-9a-f-]{36}$")
+
+
+async def archive(flow: http.HTTPFlow) -> None:
+    """Archive (or ?undo=1 unarchive) a thread via the amp CLI, for threads with no Amp row to drive."""
+    tid = flow.request.query.get("id", "")
+    if not THREAD_ID.match(tid):
+        return respond(flow, 400, "bad thread id", "text/plain")
+    args = [AMP_CLI, "threads", "archive", tid] + (["--unarchive"] if flow.request.query.get("undo") else [])
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    out, err = await proc.communicate()
+    ok = proc.returncode == 0
+    log.info("amp-tweaks: %s %s -> %s %s", "unarchive" if flow.request.query.get("undo") else "archive", tid, proc.returncode, (err or out).decode()[:200].strip())
+    global _threads_cache
+    _threads_cache = (0.0, _threads_cache[1])  # next threads.json reflects the change
+    respond(flow, 200 if ok else 502, json.dumps({"ok": ok, "error": None if ok else err.decode()[:300]}), "application/json")
+
+
 async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
+    if name == "act/archive" and flow.request.method == "POST":
+        return await archive(flow)
     if name == "report" and flow.request.method == "POST":
         return save_report(flow)
     if name == "data/threads.json":
@@ -124,8 +144,20 @@ async def request(flow: http.HTTPFlow) -> None:
         await serve_tweak(flow, flow.request.path[len(PREFIX):].split("?")[0])
 
 
+def error(flow: http.HTTPFlow) -> None:
+    """Connection-level failures (resets, timeouts) on ampcode.com, so they're attributable."""
+    if HOST_RE.search(flow.request.pretty_host):
+        log.warning("amp-tweaks: %s %s failed: %s", flow.request.method, flow.request.path[:120], flow.error)
+
+
 def response(flow: http.HTTPFlow) -> None:
     resp = flow.response
+    if resp and resp.status_code >= 500 and HOST_RE.search(flow.request.pretty_host):
+        text = resp.get_text(strict=False) or ""
+        m = re.search(r'"message":"([^"]{0,300})"|<title>([^<]{0,120})</title>', text)
+        log.warning("amp-tweaks: upstream %s for %s: %s", resp.status_code, flow.request.path[:120], (m and (m.group(1) or m.group(2))) or text[:200])
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        (REPORTS_DIR / f"upstream-{resp.status_code}.html").write_text(text)
     if not resp or flow.request.method != "GET" or flow.request.path.startswith(PREFIX):
         return
     if not HOST_RE.search(flow.request.pretty_host):
