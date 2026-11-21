@@ -3,8 +3,10 @@
 
 /* Focus mode hides Amp's thread list and activity row by structure (:has), so a list Amp recreates is hidden instantly too. */
 /* Only while our container exists: if the tweak fails to start, Amp's own list stays visible (fail open). */
-html[data-amp-focus="on"] [data-slot="sidebar"]:has([data-amp-focus-root]) [data-sidebar="group"]:has([data-testid="sidebar-thread-list"]),
-html[data-amp-focus="on"] [data-slot="sidebar"]:has([data-amp-focus-root]) :has(> .thread-scrollable-tabs-container [data-sidebar-activity-filter-running]) {
+/* Amp's thread search lives inside that list: while it's open, Amp's list (search box and results) shows and ours steps aside. */
+html[data-amp-focus="on"] [data-slot="sidebar"]:has([data-amp-focus-root]):not(:has([data-testid="sidebar-list-search"][data-open="true"])) [data-sidebar="group"]:has([data-testid="sidebar-thread-list"]),
+html[data-amp-focus="on"] [data-slot="sidebar"]:has([data-amp-focus-root]):not(:has([data-testid="sidebar-list-search"][data-open="true"])) :has(> .thread-scrollable-tabs-container [data-sidebar-activity-filter-running]),
+html[data-amp-focus="on"] [data-slot="sidebar"]:has([data-testid="sidebar-list-search"][data-open="true"]) [data-amp-focus-root] {
   display: none !important;
 }
 
