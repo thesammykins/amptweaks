@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Renders the README screenshots from the demo page (made-up threads, real focus sidebar code) with headless Chrome.
-//   node docs/demo/shoot.mjs            → all shots into docs/images/
-//   node docs/demo/shoot.mjs hover menu → just those
+//   node tweaks/focus-sidebar/_demo/shoot.mjs            → all shots into tweaks/focus-sidebar/images/
+//   node tweaks/focus-sidebar/_demo/shoot.mjs hover menu → just those
 // Needs Node 22+ and Google Chrome (or CHROME=/path/to/chrome).
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -9,8 +9,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { extname, join, normalize, resolve } from "node:path";
 
-const ROOT = resolve(import.meta.dirname, "../..");
-const OUT = join(ROOT, "docs/images");
+const ROOT = resolve(import.meta.dirname, "..");
+const OUT = join(ROOT, "images");
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const SCALE = 2;
 
@@ -33,7 +33,7 @@ const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store" }).end(readFileSync(file));
 });
 await new Promise(r => server.listen(0, "127.0.0.1", r));
-const BASE = `http://127.0.0.1:${server.address().port}/docs/demo/`;
+const BASE = `http://127.0.0.1:${server.address().port}/_demo/`;
 
 // ---------- Chrome over the DevTools protocol ----------
 const profile = mkdtempSync(join(tmpdir(), "amptweaks-shots-"));

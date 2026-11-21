@@ -1,6 +1,6 @@
 // A stand-in for Amp's sidebar, filled with made-up threads, that runs the real focus sidebar on top.
-// Serve the repo root and open /docs/demo/ (?tweak=off shows Amp's own list, ?mode=project|day picks the view).
-// docs/demo/shoot.mjs uses it to make the README screenshots, so nothing personal ever ends up in them.
+// Serve tweaks/focus-sidebar and open /_demo/ (?tweak=off shows Amp's own list, ?mode=project|day picks the view).
+// _demo/shoot.mjs uses it to make the README screenshots, so nothing personal ever ends up in them.
 import { SPACES, THREADS } from "./threads.js";
 
 const params = new URLSearchParams(location.search);
@@ -90,5 +90,5 @@ window.fetch = async (input, init) => {
   return realFetch(input, init);
 };
 
-if (params.get("tweak") !== "off") await import("../../tweaks/focus-sidebar/index.js");
+if (params.get("tweak") !== "off") await import("../index.js");
 document.documentElement.dataset.demoReady = "";

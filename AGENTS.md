@@ -41,7 +41,7 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 
 ## Demo page and screenshots
 
-`docs/demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve the repo root (`python3 -m http.server`) and open `/docs/demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node docs/demo/shoot.mjs [name…]` re-renders the README screenshots in `docs/images/` with headless Chrome. Never screenshot the live app for the README: it shows real threads.
+`tweaks/focus-sidebar/_demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve `tweaks/focus-sidebar` (`python3 -m http.server`) and open `/_demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node tweaks/focus-sidebar/_demo/shoot.mjs [name…]` re-renders the screenshots in `tweaks/focus-sidebar/images/` for the tweak's README. The `_` prefix keeps the loader from injecting the demo into Amp. Never screenshot the live app for a README: it shows real threads.
 
 ## Useful endpoints
 
