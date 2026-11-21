@@ -660,15 +660,16 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 [data-amp-focus-item][data-tree-on] > [data-family] > [data-family-inner] > * > [data-tree] { display: block; }
 [data-tree] > span { position: absolute; }
 [data-rail] { top: 0; bottom: 0; left: calc(var(--tree-x) - var(--up) * var(--indent)); border-left: 1px solid var(--tree); }
-[data-tail] { top: 0; bottom: 0; left: var(--tree-x); border-left: 1px solid var(--tree); }
-[data-stub] { top: var(--elbow-y); left: var(--tree-x); width: 0.625rem; border-top: 1px solid var(--tree); }
+[data-tail] { top: 0; height: var(--elbow-y); left: var(--tree-x); border-left: 1px solid var(--branch, var(--tree)); }
+[data-tail-down] { top: var(--elbow-y); bottom: 0; left: var(--tree-x); border-left: 1px solid var(--next, var(--tree)); }
+[data-stub] { top: var(--elbow-y); left: var(--tree-x); width: 0.625rem; border-top: 1px solid var(--branch, var(--tree)); }
 [data-elbow] {
   top: 0;
   left: var(--tree-x);
   width: 0.625rem;
   height: var(--elbow-y);
-  border-left: 1px solid var(--tree);
-  border-bottom: 1px solid var(--tree);
+  border-left: 1px solid var(--branch, var(--tree));
+  border-bottom: 1px solid var(--branch, var(--tree));
   border-bottom-left-radius: 0.5rem;
 }
 /* The "N finished" and "Show more" branches meet the line at their own text's centre. */
@@ -682,7 +683,7 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   left: calc(var(--row-x) + var(--icon-w) / 2);
   top: calc(0.375rem + var(--text-base--line-height) / 2 + 0.5rem);
   bottom: 0;
-  border-left: 1px solid var(--tree);
+  border-left: 1px solid var(--first, var(--tree));
   pointer-events: none;
 }
 
@@ -847,3 +848,38 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-trail] [data-family-toggle] { transform: none; }
   [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-title] { --cut: 0px; }
 }
+
+/* Family lines take the state of the thread they lead to: working green, waiting orange, failed red; done/idle stay grey. */
+[data-amp-focus-item] { --line-working: color-mix(in oklab, var(--color-success) 70%, transparent); --line-waiting: color-mix(in oklab, var(--color-warning) 75%, transparent); --line-failed: color-mix(in oklab, var(--color-destructive) 70%, transparent); }
+[data-branch="working"] { --branch: var(--line-working); }
+[data-branch="approve"], [data-branch="asking"], [data-branch="stalled"] { --branch: var(--line-waiting); }
+[data-branch="failed"] { --branch: var(--line-failed); }
+[data-next="working"] { --next: var(--line-working); }
+[data-next="approve"], [data-next="asking"], [data-next="stalled"] { --next: var(--line-waiting); }
+[data-next="failed"] { --next: var(--line-failed); }
+[data-first-branch="working"] { --first: var(--line-working); }
+[data-first-branch="approve"], [data-first-branch="asking"], [data-first-branch="stalled"] { --first: var(--line-waiting); }
+[data-first-branch="failed"] { --first: var(--line-failed); }
+[data-tree] > span, [data-amp-focus-row]::after { transition: border-color 240ms var(--ease-out); }
+
+/* Working threads: a thin arc spins around the icon (transform-only, so it stays smooth), replacing the pulse of a static
+   copy. Amp's own orb is drawn off the main thread and can't be mirrored. */
+[data-amp-focus-row][data-kind="working"] [data-icon-art] { animation: none; }
+[data-amp-focus-row][data-kind="working"] [data-icon] { position: relative; }
+[data-amp-focus-row][data-kind="working"] [data-icon]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: -0.6875rem 0 0 -0.6875rem;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 55%, color-mix(in oklab, var(--color-success) 85%, transparent) 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+  animation: amp-focus-spin 1.1s linear infinite;
+  pointer-events: none;
+}
+@keyframes amp-focus-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { [data-amp-focus-row][data-kind="working"] [data-icon]::after { animation-duration: 3s; } }

@@ -606,7 +606,7 @@
     holder.toggleAttribute("data-last", last);
     const ancestors = d > 1 ? rails.slice(-(d - 1)) : [];
     const html = ancestors.map((on, j) => (on ? `<span data-rail style="--up:${d - 1 - j}"></span>` : "")).join("")
-      + (last ? `<span data-elbow></span>` : `<span data-tail></span><span data-stub></span>`);
+      + (last ? `<span data-elbow></span>` : `<span data-tail></span><span data-tail-down></span><span data-stub></span>`);
     setHTML(holder.querySelector(":scope > [data-tree]"), html);
   }
 
@@ -634,6 +634,14 @@
     el.toggleAttribute("data-tree-on", visible.length + (hiddenCount ? 1 : 0) + (it.finished ? 1 : 0) > 1);
     const existing = new Map([...inner.querySelectorAll(":scope > [data-amp-focus-child][data-thread-id]")].map(c => [c.dataset.threadId, c]));
     let prev = null;
+    // Line colours: the run down to each sub-thread (and its branch) takes that thread's state; the run on past it
+    // takes the next sibling's. The parent's connector takes the first sub-thread's.
+    const nextKind = i => {
+      const d = visible[i].depth;
+      for (let j = i + 1; j < visible.length; j++) { if (visible[j].depth < d) break; if (visible[j].depth === d) return visible[j].k.kind; }
+      return "";
+    };
+    el.dataset.firstBranch = visible[0]?.k.kind ?? "";
     visible.forEach((node, i) => {
       const c = node.k;
       let ch = existing.get(c.id);
@@ -643,6 +651,9 @@
         if (animate && expanded && !isNew) requestAnimationFrame(() => ch.animate([{ opacity: 0, transform: "translateY(-3px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: EASE }));
       }
       applyTree(ch, node.depth, node.last, node.rails);
+      if (ch.dataset.branch !== c.kind) ch.dataset.branch = c.kind;
+      const nk = nextKind(i);
+      if (ch.dataset.next !== nk) ch.dataset.next = nk;
       applyRow(ch.querySelector(":scope > [data-amp-focus-row]"), c, { child: true, cls, mode: prefs.mode });
       let want = prev ? prev.nextElementSibling : inner.firstElementChild;
       while (want?.hasAttribute("data-leaving")) want = want.nextElementSibling;
