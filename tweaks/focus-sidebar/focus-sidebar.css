@@ -771,7 +771,9 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 @media (pointer: fine) {
   [data-amp-focus-row]:hover [data-row-actions] { opacity: 1; transform: none; pointer-events: auto; }
   [data-amp-focus-row]:hover [data-time] { opacity: 0; }
+  [data-amp-focus-row]:hover [data-trail] [data-family-toggle] { transform: translateX(calc(-1 * var(--shift))); }
   [data-amp-focus-row]:hover [data-title] { --cut: calc(var(--shift) - 0.5rem); }
+  [data-amp-focus-row]:hover:has([data-family-toggle]) [data-title] { --cut: var(--shift); }
   /* The overlay tray is for swipes / touch / keyboard; hover uses the in-row actions. */
   [data-amp-focus-item]:has(> [data-amp-focus-row]:hover, > [data-amp-focus-actions]:hover):not([data-swiping]):not([data-open]) { --reveal: 0; }
   [data-amp-focus-item]:has(> [data-amp-focus-row]:hover, > [data-amp-focus-actions]:hover):not([data-swiping]):not([data-open]) > [data-amp-focus-actions] { pointer-events: none; }
@@ -837,17 +839,10 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 [data-amp-focus-row][data-acts="4"] { --acts-w: 5.875rem; }
 [data-row-actions] [data-act="done"]:hover { color: var(--color-success, var(--color-foreground)); }
 [data-amp-focus-row][data-acts="5"] { --acts-w: 7.375rem; }
-}
-
-/* Hover zones (traced): the sub-thread toggle and time never move. Rows without a toggle: actions replace the time, right-aligned
-   to it. Rows with a toggle: actions slide in to the toggle's left (4px gap), time stays; the title's tail fades under them. */
-[data-amp-focus-row] [data-trail] { position: relative; }
-[data-amp-focus-row]:has([data-family-toggle]) [data-row-actions] {
-  right: calc(var(--time-w, 1rem) + 0.3125rem + 1.375rem + 0.25rem);
-  transform: translateX(0.5rem);
-}
+/* Rows with a sub-thread toggle: hover alone doesn't move anything; the reveal waits for [data-reveal] (hover intent, set in JS). */
 @media (pointer: fine) {
-  [data-amp-focus-row]:hover:has([data-family-toggle]) [data-time] { opacity: 1; }
-  [data-amp-focus-row]:hover:has([data-family-toggle]) [data-title] { --cut: calc(var(--acts-w) - 0.25rem); }
-  [data-amp-focus-row]:hover:not(:has([data-family-toggle])) [data-title] { --cut: max(0px, calc(var(--acts-w) - var(--time-w, 1rem) - 0.5rem)); }
+  [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-row-actions] { opacity: 0; transform: translateX(0.375rem); pointer-events: none; }
+  [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-time] { opacity: 1; }
+  [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-trail] [data-family-toggle] { transform: none; }
+  [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-title] { --cut: 0px; }
 }
