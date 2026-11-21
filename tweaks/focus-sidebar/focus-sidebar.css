@@ -733,7 +733,8 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 @property --cut { syntax: "<length>"; inherits: false; initial-value: 0px; }
 [data-trail] { position: relative; gap: 0.3125rem; }
 [data-time] { width: auto; max-width: none; transition: opacity 160ms var(--ease-out); }
-[data-amp-focus-row] { --acts-w: 2.875rem; --shift: max(0px, calc(var(--acts-w) - var(--time-w, 2rem))); }
+/* Toggle lands 4px left of the icons: icons width + 4px - (time width + the trail's 5px gap). */
+[data-amp-focus-row] { --acts-w: 2.875rem; --shift: var(--shift-px, max(0px, calc(var(--acts-w) - var(--time-w, 2rem)))); }
 [data-amp-focus-row][data-acts="1"] { --acts-w: 1.375rem; }
 [data-amp-focus-row][data-acts="3"] { --acts-w: 4.375rem; }
 [data-row-actions] {

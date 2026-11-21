@@ -520,7 +520,14 @@
     if (row.dataset.acts !== String(acts.length)) row.dataset.acts = acts.length;
     // The toggle slides left by (actions width - time width); measure the time text without a layout read.
     const tw = `${timeWidth(p.time.textContent)}px`;
-    if (row._tw !== tw) { row.style.setProperty("--time-w", tw); row._tw = tw; }
+    if (row._tw !== tw) {
+      row.style.setProperty("--time-w", tw);
+      row._tw = tw;
+    }
+    // Same as CSS --shift (actions width + 4px gap - time width - the trail's 5px gap), in px for the hover-zone check.
+    const actsPx = acts.length * 24 - 2;
+    const shiftPx = `${Math.max(0, actsPx - 1 - parseFloat(tw))}px`;
+    if (row._sp !== shiftPx) { row.style.setProperty("--shift-px", shiftPx); row._sp = shiftPx; }
   }
 
   let timeFont = null;
@@ -1684,12 +1691,29 @@
   let revealRow = null, revealTimer = 0;
   const clearReveal = () => { clearTimeout(revealTimer); revealTimer = 0; revealRow?.removeAttribute("data-reveal"); revealRow = null; };
   // Window + capture: Amp's sidebar handlers can stop pointer events before they reach the document.
+  // Zones (traced): the toggle plus a 6px margin is "reaching for the toggle" — nothing moves while the pointer is there.
+  // Anywhere else on the row (title, lines below, the time) reveals after a short rest. The reveal also waits if the toggle
+  // would land under the pointer, so a click meant for the row never hits the moved toggle.
+  let lastX = 0, lastY = 0;
+  const near = (r, x, y, m) => x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m;
+  const tryReveal = row => {
+    revealTimer = 0;
+    if (revealRow !== row || !row.isConnected) return;
+    const t = row.querySelector("[data-family-toggle]");
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    const shift = parseFloat(getComputedStyle(row).getPropertyValue("--shift-px")) || 0;
+    const landing = { left: r.left - shift, right: r.right - shift, top: r.top, bottom: r.bottom };
+    if (near(r, lastX, lastY, 6) || near(landing, lastX, lastY, 4)) { revealTimer = setTimeout(() => tryReveal(row), 120); return; }
+    row.setAttribute("data-reveal", "");
+  };
   window.addEventListener("mousemove", e => {
+    lastX = e.clientX; lastY = e.clientY;
     const row = e.target.closest?.("[data-amp-focus-root] [data-amp-focus-row]") ?? null;
     if (row !== revealRow) { clearReveal(); revealRow = row; }
     if (!row || row.hasAttribute("data-reveal") || !row.querySelector("[data-family-toggle]")) return;
-    if (e.target.closest("[data-trail]")) { clearTimeout(revealTimer); revealTimer = 0; return; }
-    if (!revealTimer) revealTimer = setTimeout(() => { revealTimer = 0; if (revealRow === row) { row.setAttribute("data-reveal", ""); perf.reveals = (perf.reveals ?? 0) + 1; } }, REVEAL_MS);
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => tryReveal(row), REVEAL_MS); // a rest, not just a pass-through on the way to the toggle
   }, { capture: true, passive: true });
   document.documentElement.addEventListener("mouseleave", clearReveal);
 
