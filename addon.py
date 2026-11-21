@@ -112,6 +112,9 @@ async def _refresh_threads() -> bytes:
 
 
 THREAD_ID = re.compile(r"^T-[0-9a-f-]{36}$")
+# Per-thread ordering: archive/unarchive for the same thread run in arrival order, so an Undo sent while
+# its archive is still running always lands after it (even if the page that sent it has gone).
+_thread_locks: dict[str, asyncio.Lock] = {}
 
 
 async def archive(flow: http.HTTPFlow) -> None:
@@ -123,18 +126,32 @@ async def archive(flow: http.HTTPFlow) -> None:
     gate = asyncio.Semaphore(6)
 
     async def one(tid: str) -> tuple[str, bool, str]:
-        async with gate:
-            args = [AMP_CLI, "threads", "archive", tid] + (["--unarchive"] if undo else [])
-            proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            out, err = await proc.communicate()
-            return tid, proc.returncode == 0, (err or out).decode()[:200].strip()
+        # Amp's server intermittently answers "Internal error"; retry once before calling it a failure.
+        msg = ""
+        lock = _thread_locks.setdefault(tid, asyncio.Lock())
+        async with lock:
+            return await attempt_archive(tid, msg)
+
+    async def attempt_archive(tid: str, msg: str) -> tuple[str, bool, str]:
+        for attempt in range(2):
+            async with gate:
+                args = [AMP_CLI, "threads", "archive", tid] + (["--unarchive"] if undo else [])
+                proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                out, err = await proc.communicate()
+            msg = (err or out).decode()[:200].strip()
+            if proc.returncode == 0:
+                return tid, True, msg
+            await asyncio.sleep(1.0)
+        return tid, False, msg
 
     results = await asyncio.gather(*(one(i) for i in ids))
+    done = [t for t, ok, _ in results if ok]
     failed = [{"id": t, "error": msg} for t, ok, msg in results if not ok]
     log.warning("amp-tweaks: %s %d thread(s), %d failed%s", "unarchive" if undo else "archive", len(ids), len(failed), f": {failed[:3]}" if failed else "")
     global _threads_cache
     _threads_cache = (0.0, _threads_cache[1])  # next threads.json reflects the change
-    respond(flow, 200 if not failed else 502, json.dumps({"ok": not failed, "count": len(ids), "failed": failed}), "application/json")
+    # Always 200 with per-thread results: the client restores exactly what failed and undoes exactly what succeeded.
+    respond(flow, 200, json.dumps({"ok": not failed, "count": len(ids), "done": done, "failed": failed}), "application/json")
 
 
 async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
