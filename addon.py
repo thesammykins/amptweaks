@@ -44,9 +44,11 @@ def tweak_files() -> list[Path]:
 
 
 def version(files: list[Path]) -> str:
+    """Change detector from (name, mtime, size): polled every second per window, so no file reads."""
     digest = hashlib.sha1()
     for p in files:
-        digest.update(p.name.encode() + b"\0" + p.read_bytes())
+        st = p.stat()
+        digest.update(f"{p.name}\0{st.st_mtime_ns}\0{st.st_size}\n".encode())
     return digest.hexdigest()[:12]
 
 
@@ -78,15 +80,24 @@ def save_report(flow: http.HTTPFlow) -> None:
 
 
 AMP_CLI = shutil.which("amp") or str(Path.home() / ".amp/bin/amp")
-THREADS_TTL = 20.0
+THREADS_TTL = 30.0
+_threads_lock = asyncio.Lock()
 _threads_cache: tuple[float, bytes] = (0.0, b"[]")
 
 
 async def threads_json() -> bytes:
-    """Thread metadata the web DOM doesn't carry (e.g. updated time), via the amp CLI."""
+    """Thread metadata the web DOM doesn't carry (e.g. updated time), via the amp CLI. Single-flight across windows."""
     global _threads_cache
     if time.monotonic() - _threads_cache[0] < THREADS_TTL:
         return _threads_cache[1]
+    async with _threads_lock:
+        if time.monotonic() - _threads_cache[0] < THREADS_TTL:
+            return _threads_cache[1]
+        return await _refresh_threads()
+
+
+async def _refresh_threads() -> bytes:
+    global _threads_cache
     proc = await asyncio.create_subprocess_exec(
         AMP_CLI, "threads", "list", "--json", "--limit", "500",
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
