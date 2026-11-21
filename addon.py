@@ -15,7 +15,7 @@ import shutil
 import time
 from pathlib import Path
 
-from mitmproxy import http
+from mitmproxy import ctx, http
 
 TWEAKS_DIR = Path(os.environ.get("AMP_TWEAKS_DIR", Path.home() / ".amp-tweaks"))
 LOADER = Path(__file__).with_name("loader.js")
@@ -73,7 +73,7 @@ def save_report(flow: http.HTTPFlow) -> None:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     name = re.sub(r"[^A-Za-z0-9_.-]", "_", flow.request.query.get("name", "report"))[:64]
     (REPORTS_DIR / f"{name}.json").write_bytes(flow.request.raw_content or b"")
-    log.info("amp-tweaks: report %s (%d bytes)", name, len(flow.request.raw_content or b""))
+    log.warning("amp-tweaks: report %s (%d bytes)", name, len(flow.request.raw_content or b""))
     respond(flow, 204, b"", "text/plain")
 
 
@@ -120,7 +120,7 @@ async def archive(flow: http.HTTPFlow) -> None:
 
     results = await asyncio.gather(*(one(i) for i in ids))
     failed = [{"id": t, "error": msg} for t, ok, msg in results if not ok]
-    log.info("amp-tweaks: %s %d thread(s), %d failed%s", "unarchive" if undo else "archive", len(ids), len(failed), f": {failed[:3]}" if failed else "")
+    log.warning("amp-tweaks: %s %d thread(s), %d failed%s", "unarchive" if undo else "archive", len(ids), len(failed), f": {failed[:3]}" if failed else "")
     global _threads_cache
     _threads_cache = (0.0, _threads_cache[1])  # next threads.json reflects the change
     respond(flow, 200 if not failed else 502, json.dumps({"ok": not failed, "count": len(ids), "failed": failed}), "application/json")
@@ -152,6 +152,32 @@ async def request(flow: http.HTTPFlow) -> None:
         await serve_tweak(flow, flow.request.path[len(PREFIX):].split("?")[0])
 
 
+def load(loader) -> None:
+    # launchd writes our stdout to a file, which Python block-buffers; failures should show up immediately.
+    import sys
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+    log.warning("amp-tweaks: addon loaded (streaming non-HTML, flow logging off)")
+
+
+def running() -> None:
+    # Per-request flow logging is noise (and disk I/O); our own warnings still log.
+    ctx.options.flow_detail = 0
+    ctx.options.termlog_verbosity = "warn"  # drops mitmproxy's per-response info lines; our events log at warning
+
+
+def responseheaders(flow: http.HTTPFlow) -> None:
+    """Stream everything except ampcode.com HTML documents (which we rewrite): buffering adds latency to every call."""
+    resp = flow.response
+    if (
+        HOST_RE.search(flow.request.pretty_host)
+        and flow.request.method == "GET"
+        and "text/html" in resp.headers.get("content-type", "")
+    ):
+        return
+    resp.stream = True
+
+
 def error(flow: http.HTTPFlow) -> None:
     """Connection-level failures (resets, timeouts) on ampcode.com, so they're attributable."""
     if HOST_RE.search(flow.request.pretty_host):
@@ -178,4 +204,4 @@ def response(flow: http.HTTPFlow) -> None:
         log.warning("amp-tweaks: no <head> in %s", flow.request.pretty_url)
         return
     resp.text = html[: head.end()] + TAG + html[head.end():]
-    log.info("amp-tweaks: injected into %s", flow.request.pretty_url)
+    log.warning("amp-tweaks: injected into %s", flow.request.pretty_url)

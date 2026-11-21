@@ -18,7 +18,8 @@ case ${1:-run} in
     exec mitmdump \
       --set confdir="$ROOT/ca" \
       --set connection_strategy=lazy \
-      --set termlog_verbosity=info \
+      --set termlog_verbosity=warn \
+      --set flow_detail=0 \
       --allow-hosts '^((.+\.)?ampcode\.com|127\.0\.0\.1)(:\d+)?$' \
       --mode "regular@$PORT" \
       --mode "reverse:http://127.0.0.1:9@$PAC_PORT" \
