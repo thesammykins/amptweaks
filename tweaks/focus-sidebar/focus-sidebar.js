@@ -8,7 +8,8 @@
 (() => {
   const TAG = "[amp-tweaks:focus]";
   const WORKING = new Set(["compacting", "working", "streaming", "tool_use", "running_tools"]);
-  const KIND_ORDER = ["approve", "asking", "failed", "stalled", "review", "working", "parent"];
+  // Working first (what's in motion), then what needs you, most blocking first.
+  const KIND_ORDER = ["working", "approve", "asking", "failed", "stalled", "review", "parent"];
   const NEEDS = new Set(["approve", "asking", "failed", "stalled", "review"]);
   const OLDEST_FIRST = new Set(["approve", "asking", "stalled"]); // longest-waiting blockers first
   const STALL_MS = 10 * 60_000;
@@ -390,8 +391,8 @@
     for (const it of list) {
       if (mode === "status" && it.space) add("spaces", "Spaces", -1, it);
       else if (mode === "status") {
-        const needs = NEEDS.has(it.lead);
-        add(needs ? "needs" : "working", needs ? "Needs you" : "Working", needs ? 0 : 1, it);
+        const needs = it.kind !== "working" && [it, ...(it.children ?? [])].some(i => NEEDS.has(i.kind));
+        add(needs ? "needs" : "working", needs ? "Needs you" : "Working", needs ? 1 : 0, it);
       } else if (mode === "project") add(`p:${it.d.repo ?? "~"}`, it.d.repo ?? "No project", it.d.repo ? 0 : 1, it);
       else {
         const day = dayOf(it.since);
@@ -412,6 +413,7 @@
     branch: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="7" r="2"/><path d="M6 7v10"/><path d="M18 9a6 6 0 0 1-6 6H6"/></svg>',
     runner: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></svg>',
     worktree: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h7l2 2h7v10H4z"/><path d="M9 13h6"/></svg>',
+    retry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   };
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -420,9 +422,9 @@
 
   function parts(row) {
     if (row._p) return row._p;
-    row.innerHTML = `<span data-icon><span data-icon-art></span><span data-badge></span></span><span data-title></span><span data-trail><span data-time></span></span><span data-context hidden></span><span data-meta hidden></span>`;
+    row.innerHTML = `<span data-icon><span data-icon-art></span><span data-badge></span></span><span data-title></span><span data-trail><span data-time></span><span data-row-actions></span></span><span data-context hidden></span><span data-meta hidden></span>`;
     const q = s => row.querySelector(s);
-    row._p = { icon: q("[data-icon]"), art: q("[data-icon-art]"), title: q("[data-title]"), trail: q("[data-trail]"), time: q("[data-time]"), context: q("[data-context]"), meta: q("[data-meta]"), toggle: null };
+    row._p = { icon: q("[data-icon]"), art: q("[data-icon-art]"), title: q("[data-title]"), trail: q("[data-trail]"), time: q("[data-time]"), actions: q("[data-row-actions]"), context: q("[data-context]"), meta: q("[data-meta]"), toggle: null };
     return row._p;
   }
 
@@ -488,13 +490,22 @@
       p.toggle = null;
     }
 
-    const context = !show.context ? "" : it.kind === "parent" ? esc(family) : it.context ? `${it.verb ? `<b>${esc(it.verb)}</b> ` : ""}${esc(it.context)}` : "";
+    // Failed: a small "Retry" at the end of the line, shown on hover; it retries through Amp's own thread view.
+    const retryLabel = it.kind === "failed" ? ` <button type="button" tabindex="-1" data-act="retry" data-retry-label>Retry</button>` : "";
+    const context = !show.context ? "" : it.kind === "parent" ? esc(family) : it.context ? `${it.verb ? `<b>${esc(it.verb)}</b> ` : ""}${esc(it.context)}${retryLabel}` : "";
     setHTML(p.context, context);
     p.context.hidden = !context;
     const meta = metaHTML(it, opts, family);
     setHTML(p.meta, meta);
     p.meta.hidden = !meta;
     setText(p.time, ago(it.since));
+    // Hover actions live in the row's trail: they open to the right of the toggle and push it left.
+    const acts = [
+      it.kind === "failed" ? ["retry", "Retry", ICON.retry] : null,
+      it.inAmp ? ["more", "More", ICON.more] : null,
+      ["archive", "Archive", ICON.archive],
+    ].filter(Boolean);
+    setHTML(p.actions, acts.map(([a, l, i]) => `<button type="button" tabindex="-1" data-act="${a}" aria-label="${l}" title="${l}">${i}</button>`).join(""));
   }
 
   function createItem(id) {
@@ -502,7 +513,7 @@
     el.setAttribute("data-amp-focus-item", "");
     el.dataset.threadId = id;
     el.innerHTML = `<div data-amp-focus-snooze aria-hidden="true">${ICON.snooze}</div>`
-      + `<div data-amp-focus-actions><button type="button" tabindex="-1" data-act="more" aria-label="More" title="More">${ICON.more}</button><button type="button" tabindex="-1" data-act="archive" aria-label="Archive" title="Archive">${ICON.archive}</button></div>`
+      + `<div data-amp-focus-actions><button type="button" tabindex="-1" data-act="retry" aria-label="Retry" title="Retry">${ICON.retry}</button><button type="button" tabindex="-1" data-act="more" aria-label="More" title="More">${ICON.more}</button><button type="button" tabindex="-1" data-act="archive" aria-label="Archive" title="Archive">${ICON.archive}</button></div>`
       + `<div data-amp-focus-row role="link" tabindex="-1"></div><div data-family hidden><div data-family-inner></div></div>`;
     return el;
   }
@@ -563,7 +574,8 @@
     el.dataset.kind = it.kind;
     const expanded = prefs.expanded.has(it.id);
     el.toggleAttribute("data-expanded", expanded);
-    el.querySelector('[data-act="more"]').hidden = !it.inAmp;
+    el.querySelector(':scope > [data-amp-focus-actions] [data-act="more"]').hidden = !it.inAmp;
+    el.querySelector(':scope > [data-amp-focus-actions] [data-act="retry"]').hidden = it.kind !== "failed";
     if (it.spaceColor) el.style.setProperty("--space-color", it.spaceColor);
     else el.style.removeProperty("--space-color");
     applyRow(el.querySelector(":scope > [data-amp-focus-row]"), it, { cls, mode: prefs.mode });
@@ -1122,42 +1134,32 @@
 
   function menuHTML() {
     const f = F();
-    const item = (role, key, checked, text, extra = "") =>
-      `<button type="button" role="${role}" data-f="${esc(key)}"${role === "menuitem" ? "" : ` aria-checked="${checked}"`} class="${esc(menuCls?.item ?? "")}"><span data-check>${checked ? CHECK : ""}</span><span data-label>${esc(text)}</span>${extra}</button>`;
-    const sep = `<div role="separator" class="${esc(menuCls?.sep ?? "")}" data-sep></div>`;
-    const heading = text => `<div data-menu-heading>${esc(text)}</div>`;
-    const sections = {
-      kinds: [heading("Show"), ...Object.keys(KIND_LABEL).map(k => item("menuitemcheckbox", `kind:${k}`, f.kinds[k], KIND_LABEL[k]))],
-      age: [heading("Updated"), ...AGES.map(([d, t]) => item("menuitemradio", `age:${d}`, f.age === d, t))],
-      projects: allRepos.length ? [heading("Projects"), ...allRepos.map(r => item("menuitemcheckbox", `repo:${r}`, !f.hidden.includes(r), r))] : [],
-    };
+    const check = (key, on, text, extra = "") =>
+      `<button type="button" role="menuitemcheckbox" aria-checked="${on}" data-f="${esc(key)}" class="${esc(menuCls?.item ?? "")}"><span data-check>${on ? CHECK : ""}</span><span data-label>${esc(text)}</span>${extra}</button>`;
+    const seg = (pairs, current, prefix) => `<div data-seg role="radiogroup">${pairs.map(([v, t]) =>
+      `<button type="button" role="menuitemradio" aria-checked="${current === v}" data-f="${prefix}${v}">${esc(t)}</button>`).join("")}</div>`;
+    const action = (key, text, hint = "") => `<button type="button" role="menuitem" data-f="${key}" class="${esc(menuCls?.item ?? "")}"><span data-label>${esc(text)}</span>${hint ? `<span data-hint>${hint}</span>` : ""}</button>`;
+    const section = (title, body, cls = "") => `<section data-menu-section${cls ? ` data-${cls}` : ""}><div data-menu-heading>${esc(title)}</div>${body}</section>`;
     const doneCount = doneEntries().length;
-    const view = VIEW_LEAD[prefs.mode].map(k => sections[k]).filter(x => x.length);
-    return [
-      `<div data-menu-title>${esc(MODES[prefs.mode])} view</div>`,
-      ...view.flatMap((x, i) => (i ? [sep, ...x] : x)),
-      sep,
-      item("menuitemcheckbox", "scope", f.scope === "all", "Include shared threads"),
-      item("menuitemcheckbox", "nest", f.nest, "Nest sub-threads"),
-      ...(filtersAreDefault() ? [] : [item("menuitem", "reset", false, `Reset ${MODES[prefs.mode]} view`)]),
-      sep,
-      heading("Row details"),
-      ...Object.entries(DETAILS).map(([k, t]) => item("menuitemcheckbox", `show:${k}`, prefs.display[k], t)),
-      item("menuitemcheckbox", "density", prefs.display.density === "compact", "Compact rows"),
-      heading("When the sidebar is narrow"),
-      item("menuitemradio", "fit:fade", prefs.display.fit === "fade", "Fade out details"),
-      item("menuitemradio", "fit:all", prefs.display.fit === "all", "Keep everything, wrap to fit"),
-      sep,
-      ...(snoozed.size ? [item("menuitem", "unsnooze", false, "Show snoozed", `<span data-hint>${snoozed.size}</span>`)] : []),
-      item("menuitem", "archive-done", false, "Archive all done", doneCount ? `<span data-hint>${doneCount}</span>` : ""),
-    ].join("");
+
+    const show = section("Show", `<div data-grid>${Object.keys(KIND_LABEL).map(k => check(`kind:${k}`, f.kinds[k], KIND_LABEL[k])).join("")}</div>`);
+    const updated = section("Updated", seg([[1, "24h"], [7, "7d"], [14, "14d"], [0, "Any"]], f.age, "age:"));
+    const projects = allRepos.length ? section("Projects", `<div data-grid data-scroll>${allRepos.map(r => check(`repo:${r}`, !f.hidden.includes(r), r)).join("")}</div>`) : "";
+    const threads = section("Threads", `<div data-grid>${check("nest", f.nest, "Nest sub-threads")}${check("scope", f.scope === "all", "Shared threads")}</div>`);
+    const lead = { status: [show, updated, projects], project: [projects, show, updated], day: [updated, show, projects] }[prefs.mode].filter(Boolean);
+    const details = section("Row details", `<div data-grid>${Object.entries(DETAILS).map(([k, t]) => check(`show:${k}`, prefs.display[k], t)).join("")}</div>`
+      + `<div data-seg-row><span>Density</span>${seg([["comfortable", "Comfortable"], ["compact", "Compact"]], prefs.display.density, "density:")}</div>`
+      + `<div data-seg-row><span>When narrow</span>${seg([["fade", "Fade details"], ["all", "Wrap"]], prefs.display.fit, "fit:")}</div>`);
+    const footer = `<div data-menu-footer>${snoozed.size ? action("unsnooze", "Show snoozed", String(snoozed.size)) : ""}${action("archive-done", "Archive all done", doneCount ? String(doneCount) : "")}</div>`;
+    return `<div data-menu-top><span data-menu-title>${esc(MODES[prefs.mode])} view</span>${filtersAreDefault() ? "" : `<button type="button" data-f="reset" data-menu-reset>Reset</button>`}</div>`
+      + `<div data-menu-body>${[...lead, threads].join("")}${details}</div>` + footer;
   }
 
   function applyFilter(key) {
     const f = F();
     if (key.startsWith("show:")) { const k = key.slice(5); prefs.display[k] = !prefs.display[k]; }
     else if (key.startsWith("fit:")) prefs.display.fit = key.slice(4);
-    else if (key === "density") prefs.display.density = prefs.display.density === "compact" ? "comfortable" : "compact";
+    else if (key.startsWith("density:")) prefs.display.density = key.slice(8);
     else if (key.startsWith("kind:")) { const k = key.slice(5); f.kinds[k] = !f.kinds[k]; }
     else if (key === "scope") f.scope = f.scope === "all" ? "mine" : "all";
     else if (key === "nest") f.nest = !f.nest;
@@ -1199,6 +1201,26 @@
     }
     a.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window, button: 0, ...mods }));
     temp?.remove();
+  }
+
+  // Retry = Amp's own Retry in the thread view (it re-runs the failed turn); we open the thread and press it.
+  async function retryThread(id, href) {
+    navigate(id, href, {});
+    const title = titleOf(id);
+    const isRetry = b => !b.closest('[data-slot="sidebar"], [data-amp-focus-root]') && b.offsetParent !== null
+      && /^(retry|try again)$/i.test((b.getAttribute("aria-label") || b.textContent || "").trim());
+    const t0 = Date.now();
+    while (Date.now() - t0 < 6000) {
+      await new Promise(r => setTimeout(r, 250));
+      const btn = [...document.querySelectorAll("main button, main [role=button]")].find(isRetry);
+      if (btn && location.pathname.includes(id)) {
+        btn.click();
+        toast(`Retrying ${title}`, 0, null);
+        return true;
+      }
+    }
+    toast(`Opened ${title}. Amp didn't show a Retry here.`, 0, null);
+    return false;
   }
 
   async function openAmpMenu(id, x, y) {
@@ -1394,10 +1416,14 @@
       const actBtn = e.target.closest("[data-act]");
       if (actBtn) {
         e.preventDefault();
-        const item = actBtn.closest("[data-amp-focus-item]");
+        e.stopPropagation();
+        // The row the action belongs to: a sub-thread row inside a family, or the item itself.
+        const holder = actBtn.closest("[data-amp-focus-child], [data-amp-focus-finished]") ?? actBtn.closest("[data-amp-focus-item]");
+        const id = holder.dataset.threadId;
         const r = actBtn.getBoundingClientRect();
-        if (actBtn.dataset.act === "archive") archiveItems([{ el: item, id: item.dataset.threadId, point: { x: r.left + r.width / 2, y: r.top + r.height / 2 } }]);
-        else openAmpMenu(item.dataset.threadId, r.left, r.bottom + 4);
+        if (actBtn.dataset.act === "archive") archiveItems([{ el: holder, id, point: { x: r.left + r.width / 2, y: r.top + r.height / 2 } }]);
+        else if (actBtn.dataset.act === "retry") retryThread(id, holder.querySelector(":scope > [data-amp-focus-row]")?.dataset.href ?? hrefOf(id));
+        else openAmpMenu(id, r.left, r.bottom + 4);
         return;
       }
       const open = e.target.closest("[data-amp-focus-item][data-open]");
