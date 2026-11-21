@@ -847,5 +847,3 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-trail] [data-family-toggle] { transform: none; }
   [data-amp-focus-row]:hover:has([data-family-toggle]):not([data-reveal]) [data-title] { --cut: 0px; }
 }
-/* The toggle just slid under a resting pointer: ignore clicks on it until the pointer moves (set in JS). */
-[data-amp-focus-row][data-reveal-guard] [data-family-toggle] { pointer-events: none; }
