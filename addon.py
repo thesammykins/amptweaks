@@ -104,18 +104,26 @@ THREAD_ID = re.compile(r"^T-[0-9a-f-]{36}$")
 
 
 async def archive(flow: http.HTTPFlow) -> None:
-    """Archive (or ?undo=1 unarchive) a thread via the amp CLI, for threads with no Amp row to drive."""
-    tid = flow.request.query.get("id", "")
-    if not THREAD_ID.match(tid):
+    """Archive (or ?undo=1 unarchive) threads via the amp CLI. ?id= takes one id or a comma-separated list."""
+    ids = [i for i in flow.request.query.get("id", "").split(",") if i]
+    if not ids or len(ids) > 500 or not all(THREAD_ID.match(i) for i in ids):
         return respond(flow, 400, "bad thread id", "text/plain")
-    args = [AMP_CLI, "threads", "archive", tid] + (["--unarchive"] if flow.request.query.get("undo") else [])
-    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    out, err = await proc.communicate()
-    ok = proc.returncode == 0
-    log.info("amp-tweaks: %s %s -> %s %s", "unarchive" if flow.request.query.get("undo") else "archive", tid, proc.returncode, (err or out).decode()[:200].strip())
+    undo = bool(flow.request.query.get("undo"))
+    gate = asyncio.Semaphore(6)
+
+    async def one(tid: str) -> tuple[str, bool, str]:
+        async with gate:
+            args = [AMP_CLI, "threads", "archive", tid] + (["--unarchive"] if undo else [])
+            proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            out, err = await proc.communicate()
+            return tid, proc.returncode == 0, (err or out).decode()[:200].strip()
+
+    results = await asyncio.gather(*(one(i) for i in ids))
+    failed = [{"id": t, "error": msg} for t, ok, msg in results if not ok]
+    log.info("amp-tweaks: %s %d thread(s), %d failed%s", "unarchive" if undo else "archive", len(ids), len(failed), f": {failed[:3]}" if failed else "")
     global _threads_cache
     _threads_cache = (0.0, _threads_cache[1])  # next threads.json reflects the change
-    respond(flow, 200 if ok else 502, json.dumps({"ok": ok, "error": None if ok else err.decode()[:300]}), "application/json")
+    respond(flow, 200 if not failed else 502, json.dumps({"ok": not failed, "count": len(ids), "failed": failed}), "application/json")
 
 
 async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
