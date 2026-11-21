@@ -506,6 +506,28 @@
       ["archive", "Archive", ICON.archive],
     ].filter(Boolean);
     setHTML(p.actions, acts.map(([a, l, i]) => `<button type="button" tabindex="-1" data-act="${a}" aria-label="${l}" title="${l}">${i}</button>`).join(""));
+    if (row.dataset.acts !== String(acts.length)) row.dataset.acts = acts.length;
+    // The toggle slides left by (actions width - time width); measure the time text without a layout read.
+    const tw = `${timeWidth(p.time.textContent)}px`;
+    if (row._tw !== tw) { row.style.setProperty("--time-w", tw); row._tw = tw; }
+  }
+
+  let timeFont = null;
+  const timeCanvas = document.createElement("canvas").getContext("2d");
+  const timeWidths = new Map();
+  function timeWidth(text) {
+    if (!text) return 0;
+    if (!timeFont) {
+      const probe = document.querySelector("[data-amp-focus-row] [data-time]");
+      if (!probe) return 16;
+      const cs = getComputedStyle(probe);
+      timeFont = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      timeCanvas.font = timeFont;
+      timeCanvas.fontVariantNumeric = "tabular-nums";
+    }
+    let w = timeWidths.get(text);
+    if (w === undefined) { w = Math.ceil(timeCanvas.measureText(text).width); timeWidths.set(text, w); }
+    return w;
   }
 
   function createItem(id) {
