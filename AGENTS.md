@@ -4,7 +4,8 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 
 ## Building a tweak
 
-- One folder per tweak: `tweaks/<name>/` (bundled) or `~/.amp-tweaks/<name>/` (personal), holding its `.js` and/or `.css`. A personal folder with the same name overrides the bundled one. Files are served as `<name>/<file>`.
+- One folder per tweak: `tweaks/<name>/` (bundled) or `~/.amp-tweaks/<name>/` (personal), holding its `.js` and/or `.css`. A personal folder with the same name overrides the bundled one. Files are served as `<name>/<path>`.
+- A folder with an `index.js` is an ES module tweak: only `index.js` loads (as `type=module`) and it imports the rest by relative path. Without one, every `.js` loads as a classic script in name order.
 - Find Amp's elements by its `data-*` attributes (`data-sidebar-thread-id`, `data-thread-row-*`, `data-slot`), never by Tailwind classes.
 - Style with Amp's tokens (`--color-*`, `--text-*`). To beat Amp's own `!important` rules, use `@layer amp-tweaks { … !important }`.
 - Act through Amp, not around it. Clicks, navigation and menus go through Amp's own (hidden) rows. Space threads 500 if you follow their href, and Amp's buttons ignore synthetic `.click()`.
@@ -14,8 +15,29 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 
 1. Check `~/Library/Logs/amp-tweaks-reports/errors.json` and `amp-tweaks logs`.
 2. Add a temporary `zz-probe.js` that posts what it sees to `/__amp-tweaks/report?name=probe`, then read `~/Library/Logs/amp-tweaks-reports/probe.json`. Delete it when you're done.
-3. Update the selectors in one place (in the focus sidebar, that's `readRow()` and `ampClasses()` in `tweaks/focus-sidebar/focus-sidebar.js`).
+3. Update the selectors in one place (in the focus sidebar, that's `tweaks/focus-sidebar/amp/`).
 4. Prove it in the running app with a report or screenshot. This repo has no test suite, don't add one.
+
+## Focus sidebar modules
+
+Each file owns one job, so a change usually touches one file. Shared mutable state lives on `S` in `state.js`.
+
+| To change | Edit |
+| --- | --- |
+| How Amp's sidebar is read (selectors, row signals) | `amp/dom.js` |
+| Clicking through to Amp (navigate, menu, pin, retry) | `amp/actions.js` |
+| What counts as working / needs you / done, grouping, search | `model.js` |
+| Labels, kind order, timings, icons | `config.js` |
+| A row's lines and hover buttons | `render/rows.js` |
+| Sub-thread lines, colours, "N finished" | `render/tree.js` |
+| Sections, ordering animation, header | `render/list.js` |
+| Archive, undo, snooze, mark done, toasts | `actions.js` |
+| Filter menu | `menu.js` |
+| Swipes, keyboard, hover reveal | `input.js` |
+| Refresh timing, Amp change detection | `live.js` |
+| Saved prefs and caches | `store.js` |
+| Thread data from the proxy and Amp's API | `data.js` |
+| Look and feel | `focus-sidebar.css` |
 
 ## Useful endpoints
 

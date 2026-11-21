@@ -45,7 +45,12 @@ def _disabled() -> set[str]:
 
 
 def _assets(d: Path) -> list[Path]:
-    return sorted(p for p in d.iterdir() if p.is_file() and p.suffix in (".css", ".js") and not p.name.startswith(("_", ".")))
+    """A tweak folder's .css/.js files, including subfolders (module tweaks import from them); _ and . names skipped."""
+    return sorted(
+        p for p in d.rglob("*")
+        if p.is_file() and p.suffix in (".css", ".js")
+        and not any(part.startswith(("_", ".")) for part in p.relative_to(d).parts)
+    )
 
 
 def tweak_files() -> list[tuple[str, Path]]:
@@ -67,7 +72,7 @@ def tweak_files() -> list[tuple[str, Path]]:
             elif root == TWEAKS_DIR and entry.is_file() and entry.suffix in (".css", ".js"):
                 loose[entry.name] = entry
     off = _disabled()
-    out = [(f"{name}/{p.name}", p) for name, d in folders.items() if name not in off for p in _assets(d)]
+    out = [(f"{name}/{p.relative_to(d).as_posix()}", p) for name, d in folders.items() if name not in off for p in _assets(d)]
     out += [(n, p) for n, p in loose.items() if n not in off and Path(n).stem not in off]
     return sorted(out)
 
@@ -82,12 +87,17 @@ def version(files: list[tuple[str, Path]]) -> str:
 
 
 def manifest() -> dict:
+    """css: stylesheets. js: classic scripts, loaded in order. modules: a tweak folder with an index.js is an ES module
+    tweak; only index.js is loaded (as type=module) and it imports the folder's other files by relative path."""
     files = tweak_files()
     css = [f for f in files if f[1].suffix == ".css"]
     js = [f for f in files if f[1].suffix == ".js"]
+    module_dirs = {n.split("/")[0] for n, _ in js if n.endswith("/index.js")}
+    in_module = lambda n: "/" in n and n.split("/")[0] in module_dirs
     return {
         "css": [n for n, _ in css],
-        "js": [n for n, _ in js],
+        "js": [n for n, _ in js if not in_module(n)],
+        "modules": [f"{d}/index.js" for d in sorted(module_dirs)],
         "cssVersion": version(css),
         "jsVersion": version(js),
     }

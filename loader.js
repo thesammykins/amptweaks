@@ -64,7 +64,15 @@
     s.dataset.ampTweak = name;
     document.head.appendChild(s);
   }
-  log(`loaded ${m.css.length} css, ${m.js.length} js`);
+  // Module tweaks (a folder with index.js): loaded from a real path so `import "./x.js"` resolves inside the folder.
+  for (const name of m.modules ?? []) {
+    const s = document.createElement("script");
+    s.type = "module";
+    s.src = `${BASE}${name.split("/").map(encodeURIComponent).join("/")}?v=${m.jsVersion}`;
+    s.dataset.ampTweak = name;
+    document.head.appendChild(s);
+  }
+  log(`loaded ${m.css.length} css, ${m.js.length} js, ${(m.modules ?? []).length} module tweaks`);
 
   // Live reload: CSS swaps in place; any JS change reloads the page.
   let { cssVersion, jsVersion } = m;

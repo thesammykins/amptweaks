@@ -39,7 +39,7 @@ Archiving a parent archives its sub-threads too, and Undo puts back exactly what
 
 ## Your own tweaks
 
-Put `.css` and `.js` files in `~/.amp-tweaks`, either loose or in a folder per tweak (`~/.amp-tweaks/my-tweak/`). They load on every Amp page and reload when you save. Anything starting with `_` is skipped, and a folder with the same name as a bundled tweak replaces it.
+Put `.css` and `.js` files in `~/.amp-tweaks`, either loose or in a folder per tweak (`~/.amp-tweaks/my-tweak/`). They load on every Amp page and reload when you save. Anything starting with `_` is skipped, and a folder with the same name as a bundled tweak replaces it. A folder with an `index.js` loads as an ES module, so it can split into files with `import`.
 
 The installer links `amp-tweaks` into `~/.local/bin` if you have that folder, otherwise it's at `~/Library/Application Support/amp-tweaks/app/bin/amp-tweaks`.
 
