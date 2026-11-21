@@ -1,6 +1,7 @@
 #!/bin/zsh
-# amp-tweaks: inject ~/.amp-tweaks/*.css|js into the Amp macOS app (and ampcode.com).
+# amp-tweaks — load your own CSS/JS into the Amp macOS app (and ampcode.com) through a local, scoped proxy.
 set -euo pipefail
+
 ROOT=${0:A:h:h}
 PORT=${AMP_TWEAKS_PORT:-8787}
 PAC_PORT=${AMP_TWEAKS_PAC_PORT:-8788}
@@ -8,15 +9,47 @@ PAC_URL="http://127.0.0.1:$PAC_PORT/proxy.pac"
 LABEL=com.amp-tweaks.proxy
 AGENT=~/Library/LaunchAgents/$LABEL.plist
 LOG=~/Library/Logs/amp-tweaks.log
+STATE=${AMP_TWEAKS_HOME:-"$HOME/Library/Application Support/amp-tweaks"}
+CA_DIR="$STATE/ca"
+TWEAKS_DIR=${AMP_TWEAKS_DIR:-"$HOME/.amp-tweaks"}
 
-services() {
-  networksetup -listallnetworkservices | tail -n +2 | grep -v '^\*'
+say() { print -r -- "$*"; }
+die() { print -r -- "amp-tweaks: $*" >&2; exit 1; }
+
+services() { networksetup -listallnetworkservices | tail -n +2 | grep -v '^\*'; }
+
+need() {
+  local missing=()
+  command -v mitmdump >/dev/null || missing+=("mitmproxy (brew install mitmproxy)")
+  command -v openssl >/dev/null || missing+=("openssl")
+  [[ -d /Applications/Amp.app || -d "$HOME/Applications/Amp.app" ]] || say "note: Amp.app not found in /Applications; tweaks still apply to ampcode.com in your browser"
+  command -v amp >/dev/null || [[ -x "$HOME/.amp/bin/amp" ]] || say "note: amp CLI not found (https://ampcode.com/install); the focus sidebar uses it for thread lists and archive"
+  (( ${#missing} == 0 )) || die "missing: ${(j:, :)missing}"
 }
 
-case ${1:-run} in
+# A CA constrained to ampcode.com: it cannot sign certificates for any other site.
+make_ca() {
+  [[ -f "$CA_DIR/mitmproxy-ca.pem" ]] && return
+  say "creating a local CA (constrained to ampcode.com) in $CA_DIR"
+  mkdir -p "$CA_DIR"
+  chmod 700 "$CA_DIR"
+  openssl req -x509 -new -newkey rsa:2048 -nodes -keyout "$CA_DIR/key.pem" -out "$CA_DIR/cert.pem" \
+    -days 825 -config "$ROOT/ca/ca.cnf" 2>/dev/null
+  cat "$CA_DIR/key.pem" "$CA_DIR/cert.pem" > "$CA_DIR/mitmproxy-ca.pem"
+  cp "$CA_DIR/cert.pem" "$CA_DIR/mitmproxy-ca-cert.pem"
+  chmod 600 "$CA_DIR/key.pem" "$CA_DIR/mitmproxy-ca.pem"
+}
+
+ca_trusted() { security verify-cert -c "$CA_DIR/cert.pem" -p ssl >/dev/null 2>&1; }
+
+cmd=${1:-help}
+[[ $# -gt 0 ]] && shift
+
+case $cmd in
   run)
+    [[ -f "$CA_DIR/mitmproxy-ca.pem" ]] || die "no CA yet; run: amp-tweaks enable"
     exec mitmdump \
-      --set confdir="$ROOT/ca" \
+      --set confdir="$CA_DIR" \
       --set connection_strategy=lazy \
       --set termlog_verbosity=warn \
       --set flow_detail=0 \
@@ -27,14 +60,22 @@ case ${1:-run} in
     ;;
 
   enable)
-    mkdir -p ~/.amp-tweaks
+    need
+    make_ca
+    mkdir -p "$TWEAKS_DIR"
     cat > "$AGENT" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array><string>$ROOT/bin/amp-tweaks</string><string>run</string></array>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:$HOME/.amp/bin:/usr/bin:/bin</string>
+    <key>AMP_TWEAKS_PORT</key><string>$PORT</string>
+    <key>AMP_TWEAKS_PAC_PORT</key><string>$PAC_PORT</string>
+    <key>AMP_TWEAKS_DIR</key><string>$TWEAKS_DIR</string>
+    <key>AMP_TWEAKS_HOME</key><string>$STATE</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$LOG</string>
@@ -42,41 +83,110 @@ case ${1:-run} in
 </dict></plist>
 PLIST
     launchctl bootout "gui/$UID/$LABEL" 2>/dev/null || true
-    launchctl bootstrap "gui/$UID" "$AGENT"
-    echo "proxy agent loaded ($LOG)"
+    # launchd tears the old agent down asynchronously; bootstrapping too early fails with "5: Input/output error".
+    for _ in {1..20}; do launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1 || break; sleep 0.25; done
+    launchctl bootstrap "gui/$UID" "$AGENT" 2>/dev/null || { sleep 1; launchctl bootstrap "gui/$UID" "$AGENT"; }
+    say "proxy running (log: $LOG)"
 
-    if ! security verify-cert -c "$ROOT/ca/cert.pem" -p ssl >/dev/null 2>&1; then
-      echo "trusting CA (constrained to ampcode.com) in login keychain…"
-      security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db "$ROOT/ca/cert.pem"
+    if ! ca_trusted; then
+      say "trusting the local CA in your login keychain (macOS will ask for your password)…"
+      security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db "$CA_DIR/cert.pem"
     fi
 
+    # Remember each service's previous auto-proxy settings once, so disable can put them back.
+    mkdir -p "$STATE/previous-pac"
     services | while read -r svc; do
+      f="$STATE/previous-pac/${svc//\//_}"
+      if [[ ! -f "$f" ]]; then
+        cur=$(networksetup -getautoproxyurl "$svc")
+        # Never record our own script as "previous" (re-running enable, or upgrading an older install).
+        if print -r -- "$cur" | grep -qF "$PAC_URL"; then print "URL: (null)\nEnabled: No" > "$f"; else print -r -- "$cur" > "$f"; fi
+      fi
       networksetup -setautoproxyurl "$svc" "$PAC_URL"
       networksetup -setautoproxystate "$svc" on
-      echo "PAC on: $svc"
     done
-    echo "enabled — quit and reopen Amp"
+    say "routing only *.ampcode.com through 127.0.0.1:$PORT (everything else goes direct)"
+    if [[ -d "$HOME/.local/bin" && ! -e "$HOME/.local/bin/amp-tweaks" ]]; then
+      ln -s "$ROOT/bin/amp-tweaks" "$HOME/.local/bin/amp-tweaks" && say "linked amp-tweaks into ~/.local/bin"
+    fi
+    say "done: quit and reopen Amp"
     ;;
 
   disable)
     services | while read -r svc; do
-      networksetup -setautoproxystate "$svc" off
-      echo "PAC off: $svc"
+      f="$STATE/previous-pac/${svc//\//_}"
+      if [[ -f "$f" ]] && grep -q '^Enabled: Yes' "$f"; then
+        url=$(sed -n 's/^URL: //p' "$f")
+        networksetup -setautoproxyurl "$svc" "$url"
+        say "restored previous proxy script on $svc"
+      else
+        networksetup -setautoproxystate "$svc" off
+      fi
+      rm -f "$f"
     done
-    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null && echo "proxy agent stopped" || true
+    launchctl bootout "gui/$UID/$LABEL" 2>/dev/null && say "proxy stopped" || true
     rm -f "$AGENT"
-    if [[ ${2:-} == --untrust ]]; then
-      security remove-trusted-cert "$ROOT/ca/cert.pem" && echo "CA trust removed"
+    if [[ ${1:-} == --untrust ]]; then
+      security remove-trusted-cert "$CA_DIR/cert.pem" 2>/dev/null && say "removed CA trust" || true
     fi
-    echo "disabled — quit and reopen Amp"
+    say "disabled: quit and reopen Amp"
     ;;
 
   status)
-    launchctl print "gui/$UID/$LABEL" 2>/dev/null | grep -E '^\s+state' || echo "agent: not loaded"
-    scutil --proxy | grep -E 'ProxyAutoConfig(Enable|URLString)' || echo "PAC: not set"
-    security verify-cert -c "$ROOT/ca/cert.pem" -p ssl >/dev/null 2>&1 && echo "CA: trusted" || echo "CA: not trusted"
-    ls ~/.amp-tweaks
+    if launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then say "proxy:    running"; else say "proxy:    not running"; fi
+    scutil --proxy | grep -q "ProxyAutoConfigURLString : $PAC_URL" && say "routing:  on ($PAC_URL)" || say "routing:  off"
+    [[ -f "$CA_DIR/cert.pem" ]] && { ca_trusted && say "CA:       trusted" || say "CA:       not trusted"; } || say "CA:       not created"
+    say "tweaks:   $TWEAKS_DIR (+ bundled in $ROOT/tweaks)"
+    say "log:      $LOG"
+    say "reports:  ~/Library/Logs/amp-tweaks-reports"
     ;;
 
-  *) echo "usage: amp-tweaks run|enable|disable [--untrust]|status" >&2; exit 2 ;;
+  tweaks)
+    sub=${1:-list}
+    disabled="$TWEAKS_DIR/disabled"
+    mkdir -p "$TWEAKS_DIR"
+    touch "$disabled"
+    case $sub in
+      list)
+        for f in "$ROOT"/tweaks/*.(js|css)(N) "$TWEAKS_DIR"/*.(js|css)(N); do
+          n=${f:t}
+          [[ $n == _* ]] && continue
+          src=$([[ $f == $ROOT/* ]] && echo bundled || echo yours)
+          if grep -qxF -e "$n" -e "${n:r}" "$disabled"; then say "  off  $n ($src)"; else say "  on   $n ($src)"; fi
+        done | sort -u -k2,2
+        ;;
+      disable) [[ -n ${2:-} ]] || die "usage: amp-tweaks tweaks disable <name>"; grep -qxF "$2" "$disabled" || print -r -- "$2" >> "$disabled"; say "disabled $2" ;;
+      enable)  [[ -n ${2:-} ]] || die "usage: amp-tweaks tweaks enable <name>"; grep -vxF "$2" "$disabled" > "$disabled.tmp" || true; mv "$disabled.tmp" "$disabled"; say "enabled $2" ;;
+      *) die "usage: amp-tweaks tweaks [list|enable <name>|disable <name>]" ;;
+    esac
+    ;;
+
+  uninstall)
+    "$0" disable --untrust
+    rm -f "$HOME/.local/bin/amp-tweaks" "$LOG"
+    rm -rf ~/Library/Logs/amp-tweaks-reports
+    say "kept your tweaks in $TWEAKS_DIR (delete it yourself if you don't want them)"
+    # Last: the state dir holds the CA and, for one-line installs, this script's own checkout.
+    exec rm -rf "$STATE"
+    ;;
+
+  logs) exec tail -f "$LOG" ;;
+
+  help|-h|--help)
+    cat <<'HELP'
+usage: amp-tweaks <command>
+
+  enable              start the proxy, trust its ampcode.com-only CA, route ampcode.com through it
+  disable [--untrust] undo enable (restores previous proxy settings; --untrust also removes the CA)
+  uninstall           disable, remove the CA, logs and app; keeps your ~/.amp-tweaks
+  status              what's running
+  tweaks              list tweaks (bundled and yours) and whether they're on
+  tweaks disable N    turn a tweak off (e.g. focus-sidebar)
+  tweaks enable N     turn it back on
+  logs                follow the proxy log
+  run                 run the proxy in the foreground (debugging)
+HELP
+    ;;
+
+  *) die "unknown command: $cmd (try: amp-tweaks help)" ;;
 esac

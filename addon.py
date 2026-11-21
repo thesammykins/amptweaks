@@ -1,4 +1,4 @@
-"""mitmproxy addon: injects ~/.amp-tweaks CSS/JS into the ampcode.com web client.
+"""mitmproxy addon: injects tweaks (bundled ./tweaks + ~/.amp-tweaks) into the ampcode.com web client.
 
 Two listeners share this addon:
   regular proxy  -> rewrites ampcode.com HTML, serves /__amp-tweaks/* on that origin
@@ -17,7 +17,10 @@ from pathlib import Path
 
 from mitmproxy import ctx, http
 
+# Tweaks come from two places: the ones bundled with this repo, and the user's own folder.
+# A user file with the same name overrides a bundled one; names listed in <user dir>/disabled are skipped.
 TWEAKS_DIR = Path(os.environ.get("AMP_TWEAKS_DIR", Path.home() / ".amp-tweaks"))
+BUNDLED_DIR = Path(__file__).with_name("tweaks")
 LOADER = Path(__file__).with_name("loader.js")
 REPORTS_DIR = Path(os.environ.get("AMP_TWEAKS_REPORTS", Path.home() / "Library/Logs/amp-tweaks-reports"))
 PREFIX = "/__amp-tweaks/"
@@ -34,13 +37,25 @@ PAC = f"""function FindProxyForURL(url, host) {{
 """
 
 
+def _disabled() -> set[str]:
+    f = TWEAKS_DIR / "disabled"
+    if not f.is_file():
+        return set()
+    return {line.strip() for line in f.read_text().splitlines() if line.strip() and not line.startswith("#")}
+
+
 def tweak_files() -> list[Path]:
-    if not TWEAKS_DIR.is_dir():
-        return []
-    return sorted(
-        p for p in TWEAKS_DIR.iterdir()
-        if p.is_file() and p.suffix in (".css", ".js") and not p.name.startswith(("_", "."))
-    )
+    """Enabled tweaks by name (user overrides bundled), sorted by name so load order is predictable."""
+    by_name: dict[str, Path] = {}
+    for d in (BUNDLED_DIR, TWEAKS_DIR):
+        if not d.is_dir():
+            continue
+        for p in d.iterdir():
+            if p.is_file() and p.suffix in (".css", ".js") and not p.name.startswith(("_", ".")):
+                by_name[p.name] = p
+    off = _disabled()
+    # "focus-sidebar" in the disabled list turns off both focus-sidebar.js and focus-sidebar.css.
+    return [by_name[n] for n in sorted(by_name) if n not in off and Path(n).stem not in off]
 
 
 def version(files: list[Path]) -> str:
@@ -165,8 +180,9 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
         return respond(flow, 200, LOADER.read_bytes(), "text/javascript; charset=utf-8")
     if name == "manifest.json":
         return respond(flow, 200, json.dumps(manifest()), "application/json")
-    path = (TWEAKS_DIR / name).resolve()
-    if path.parent != TWEAKS_DIR.resolve() or path not in [p.resolve() for p in tweak_files()]:
+    # Serve only enabled tweaks, looked up by exact name (no paths), so nothing else on disk is reachable.
+    path = next((p for p in tweak_files() if p.name == name), None)
+    if path is None:
         log.warning("amp-tweaks: refused %s", name)
         return respond(flow, 404, "not a tweak", "text/plain")
     ctype = "text/css" if path.suffix == ".css" else "text/javascript"

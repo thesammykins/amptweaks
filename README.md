@@ -1,28 +1,66 @@
-# amp-tweaks
+# amptweaks
 
-Dia Tweaks–style CSS/JS injection for the Amp macOS app (and ampcode.com in any browser).
+Load your own CSS and JS into the Amp Mac app, the same way you'd use a userscript in a browser. It ships with one tweak, the focus sidebar, which swaps Amp's thread list for just the threads that need you and the ones still working.
 
-Amp.app is a signed native shell around the live ampcode.com web client, so tweaks are injected on the network: a local mitmproxy rewrites ampcode.com HTML to load `/__amp-tweaks/loader.js`, which loads every `*.css` and `*.js` in `~/.amp-tweaks/` (alphabetical; prefix `_` to disable). CSS hot-swaps; JS changes reload the page. The loader also forces `webViewInspectable`, so Safari ▸ Develop ▸ <Mac> ▸ Amp opens Web Inspector on the app.
+This is an unofficial mod, it isn't made or supported by Amp.
 
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thesammykins/amptweaks/main/install.sh | zsh
 ```
-bin/amp-tweaks enable              # LaunchAgent + trust CA + PAC for *.ampcode.com only
-bin/amp-tweaks status
-bin/amp-tweaks disable [--untrust]
-bin/amp-tweaks run                 # foreground, for debugging
+
+Then quit and reopen Amp. Run the same line again to update.
+
+It installs mitmproxy with Homebrew if you don't have it, and macOS will ask for your password once to trust a local certificate.
+
+## Uninstall
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thesammykins/amptweaks/main/uninstall.sh | zsh
 ```
 
-The CA in `ca/` is name-constrained to `ampcode.com` and `.ampcode.com`, so it can't sign any other site. Generate your own with `ca/ca.cnf` (see git history); the keys are gitignored. If the proxy is down, the PAC falls back to DIRECT.
+This puts your proxy settings back the way they were, removes the certificate and its trust, and deletes the logs and app. Your own tweaks in `~/.amp-tweaks` are left alone.
 
-After enabling, connections Amp already has open bypass the proxy until its WebKit networking process restarts (relaunch Amp, or `View ▸ Reload Window` after the pool idles). Log: `~/Library/Logs/amp-tweaks.log`.
+## How it works
 
-## Writing tweaks
+Amp's Mac app is a native shell around ampcode.com, so tweaks go in at the network rather than by patching the app. A small proxy runs on your Mac and only ampcode.com is routed through it, everything else goes direct. It adds one script tag to Amp's pages, and that script loads the tweaks. The certificate it uses is restricted to ampcode.com, so it can't be used to intercept any other site. If the proxy stops, Amp connects directly and keeps working, just without tweaks.
 
-- Amp sets some `!important` rules inside Tailwind cascade layers, which beat unlayered `!important`. The loader declares `@layer amp-tweaks` before Amp's CSS loads, so `@layer amp-tweaks { … !important }` wins over them.
-- `GET /__amp-tweaks/data/threads.json` returns `[{id, updated}]` from `amp threads list` (cached for 30s, one CLI call shared across windows), for metadata the DOM doesn't carry.
-- `POST /__amp-tweaks/act/archive?id=T-…[,T-…][&undo=1]` archives or unarchives up to 500 threads, 6 at a time, through `amp threads archive`. Amp's own row buttons ignore synthetic clicks, so tweaks archive through this.
-- `POST /__amp-tweaks/report?name=X` writes the request body to `~/Library/Logs/amp-tweaks-reports/X.json`, so a tweak can report page state without opening Web Inspector.
-- Sidebar rows are `a[data-sidebar-thread-id]` with `data-thread-row-*` attributes. A tweak that renders its own rows (like `focus-sidebar.js`) should route clicks and the context menu through Amp's hidden original rows: Space threads 500 if you follow their href directly, and Amp's row buttons ignore synthetic `.click()`.
-- Amp's thread context menu opens on a hidden original row if you dispatch `pointerdown`, then on the next frame a right-button `mousedown` and `contextmenu`, at the pointer's coordinates.
-- Upstream 5xx pages on ampcode.com are logged with their error text, and the last one is saved to `~/Library/Logs/amp-tweaks-reports/upstream-<status>.html`.
-- Uncaught errors from tweak scripts are reported by the loader to `~/Library/Logs/amp-tweaks-reports/errors.json`.
-- HTML page loads are fetched by the addon over a fresh connection (retried twice) instead of mitmproxy's pooled HTTP/2 upstream, which can fail in-flight requests and show a 502 page.
+## Focus sidebar
+
+Threads are grouped by Status, Project or Day, with a filter menu at the top right for what each view shows. Sub-threads and Spaces nest under their parent, and a family's finished threads sit under "N finished".
+
+- Hover a row for archive and Amp's own menu, or swipe left with two fingers (a full swipe archives). Swipe right to snooze until something changes.
+- Right-click or long-press opens Amp's menu for that thread.
+- ⌃⌘A archives the open thread and moves to the next one. ⌘Z undoes.
+- Arrow keys move between rows, → and ← open and close families, Enter opens, E archives, S snoozes.
+
+Archiving a parent archives its sub-threads too, and Undo puts back exactly what was archived. Archive uses the `amp` CLI, so install that too if you haven't ([ampcode.com/install](https://ampcode.com/install)).
+
+## Your own tweaks
+
+Put `.css` and `.js` files in `~/.amp-tweaks`. They load on every Amp page and reload when you save. Files starting with `_` are skipped.
+
+The installer links `amp-tweaks` into `~/.local/bin` if you have that folder, otherwise it's at `~/Library/Application Support/amp-tweaks/app/bin/amp-tweaks`.
+
+```sh
+amp-tweaks tweaks                       # what's on
+amp-tweaks tweaks disable focus-sidebar # turn a tweak off
+amp-tweaks status                       # proxy, routing and certificate
+amp-tweaks logs                         # follow the proxy log
+```
+
+Errors from tweaks are written to `~/Library/Logs/amp-tweaks-reports/errors.json`. [AGENTS.md](AGENTS.md) covers building tweaks and fixing them when Amp changes.
+
+## If something's off
+
+- No tweaks after installing: quit and reopen Amp, since connections it already had open skip the proxy.
+- Amp looks broken: `amp-tweaks tweaks disable focus-sidebar` to rule the sidebar out, or `amp-tweaks disable` to take everything out of the path.
+
+## Requirements
+
+macOS, the Amp Mac app, Homebrew (for mitmproxy) and the `amp` CLI for the focus sidebar's archive and thread list.
+
+## License
+
+MIT
