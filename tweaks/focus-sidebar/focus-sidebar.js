@@ -1706,14 +1706,16 @@
     const landing = { left: r.left - shift, right: r.right - shift, top: r.top, bottom: r.bottom };
     if (near(r, lastX, lastY, 6) || near(landing, lastX, lastY, 4)) { revealTimer = setTimeout(() => tryReveal(row), 120); return; }
     row.setAttribute("data-reveal", "");
+    perf.reveals = (perf.reveals ?? 0) + 1;
   };
   window.addEventListener("mousemove", e => {
     lastX = e.clientX; lastY = e.clientY;
     const row = e.target.closest?.("[data-amp-focus-root] [data-amp-focus-row]") ?? null;
     if (row !== revealRow) { clearReveal(); revealRow = row; }
     if (!row || row.hasAttribute("data-reveal") || !row.querySelector("[data-family-toggle]")) return;
-    clearTimeout(revealTimer);
-    revealTimer = setTimeout(() => tryReveal(row), REVEAL_MS); // a rest, not just a pass-through on the way to the toggle
+    // One timer per entry (a real pointer is never still, so restarting it on every move would never fire);
+    // where the pointer is gets checked when it fires.
+    if (!revealTimer) revealTimer = setTimeout(() => tryReveal(row), REVEAL_MS);
   }, { capture: true, passive: true });
   document.documentElement.addEventListener("mouseleave", clearReveal);
 
