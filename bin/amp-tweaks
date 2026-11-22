@@ -197,6 +197,8 @@ PLIST
       missing=$(plutil -extract missing json -o - "$reports/focus-sidebar.json" 2>/dev/null | tr -d '[]"' | sed 's/,/, /g' || true)
       at=$(date -r "$(stat -f %m "$reports/focus-sidebar.json")" '+%-d %b %H:%M')
       [[ -n $missing ]] && say "sidebar:  Amp's sidebar changed, can't find: $missing ($at)" || say "sidebar:  ok ($at)"
+      filters=$(plutil -extract ampFilters json -o - "$reports/focus-sidebar.json" 2>/dev/null | tr -d '{}"' | sed 's/,/, /g' || true)
+      [[ -n $filters && $filters != "" ]] && say "          Amp's own filters are hiding threads from it: $filters (clear them in Amp's filter menu)"
     fi
     say "tweaks:   $TWEAKS_DIR (+ bundled in $ROOT/tweaks)"
     say "log:      $LOG"

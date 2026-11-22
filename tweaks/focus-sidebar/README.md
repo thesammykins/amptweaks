@@ -20,6 +20,8 @@ Threads are grouped by Status, Project or Day, with a filter menu at the top rig
 - ⌃⌘A archives the open thread and moves to the next one. ⌘Z undoes.
 - Arrow keys move between rows, → and ← open and close families, Enter opens, E archives, S snoozes, D marks an Ask done, P pins.
 
+While it's on, it turns off Amp's own sidebar filters (time range, hide running, needs-you only), since they'd hide threads from it. A project or automation filter set in Amp still applies; clear it from Amp's filter menu with the sidebar off.
+
 Archiving a parent archives its sub-threads too, and Undo puts back exactly what was archived. Archive uses the `amp` CLI, so install that too if you haven't ([ampcode.com/install](https://ampcode.com/install)).
 
 Turn it off with `amp-tweaks tweaks disable focus-sidebar`.

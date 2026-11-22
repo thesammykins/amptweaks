@@ -26,6 +26,7 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 | To change | Edit |
 | --- | --- |
 | How Amp's sidebar is read (selectors, row signals) | `amp/dom.js` |
+| Turning off Amp's own sidebar filters (time range, hide running, needs-you only) | `amp/view-state.js` |
 | Clicking through to Amp (navigate, menu, pin, retry) | `amp/actions.js` |
 | What counts as working / needs you / done, grouping, search | `model.js` |
 | Labels, kind order, timings, icons | `config.js` |

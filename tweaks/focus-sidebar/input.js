@@ -1,4 +1,5 @@
 // Input: pointer/touch swipes, keyboard navigation, click wiring for the root, hover reveal of row actions.
+import { clearAmpFilters } from "./amp/view-state.js";
 import { archiveAllDone, archiveItems, familyIds, hrefOf, markDone, snoozeItem } from "./actions.js";
 import { navigate, openAmpMenu, pinThread, retryThread } from "./amp/actions.js";
 import { FINISHED_PAGE } from "./config.js";
@@ -164,6 +165,7 @@ export function wireRoot(root) {
     if (e.target.closest("[data-toggle]")) {
       prefs.focus = !prefs.focus;
       store.set("focus.on", prefs.focus);
+      if (prefs.focus) clearAmpFilters();
       if (S.failed) { S.recoveries = 0; return recover(); }
       applyMode();
       return render(true);

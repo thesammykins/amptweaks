@@ -2,6 +2,7 @@
 import { archive, archiveAllDone, archiveAndAdvance, archiveItems, dismissed, findItem, undoLast, undoStack } from "./actions.js";
 import { navigate, openAmpMenu } from "./amp/actions.js";
 import { ampSearch, missingHooks, readAmp, readRow } from "./amp/dom.js";
+import { ampFilters, clearAmpFilters } from "./amp/view-state.js";
 import { RECENT_MS } from "./config.js";
 import { computeMe, due, fetchMany, fetchOne, loadCli } from "./data.js";
 import { onRowKey } from "./input.js";
@@ -157,6 +158,7 @@ export async function liveTick() {
 
 export function start() {
   applyMode();
+  if (prefs.focus) clearAmpFilters().then(left => left.length && console.warn("[focus-sidebar] Amp sidebar filters still on:", left.join(", ")));
   S.rows = readAmp();
   S.lastSigs = new Map([...S.rows].map(([id, r]) => [id, { sig: r.sig, flags: r.flags }]));
   // Observe the whole sidebar so a recreated Amp list (or our recreated container) is noticed.
@@ -223,7 +225,7 @@ export function start() {
     setTimeout(() => {
       const r = sel => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().left) : null; };
       const report = {
-        url: location.href, missing: missingHooks(), me: !!S.me, cached: cache.size, mode: prefs.mode, loading: S.loading,
+        url: location.href, missing: missingHooks(), ampFilters: ampFilters(), me: !!S.me, cached: cache.size, mode: prefs.mode, loading: S.loading,
         top: S.model.length,
         counts: S.model.reduce((m, i) => ((m[i.kind] = (m[i.kind] ?? 0) + 1), m), {}),
         families: S.model.filter(i => i.children.length).map(i => ({ title: i.d.title?.slice(0, 40), space: !!i.space, lead: i.lead, children: i.children.map(c => c.kind), finished: i.finished })),
