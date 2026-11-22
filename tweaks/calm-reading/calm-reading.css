@@ -1,0 +1,14 @@
+/* Calmer replies: a little more space between lines, and inline code tinted instead of boxed, so a paragraph
+   full of names reads as a sentence. Code blocks are left alone. */
+@layer amp-tweaks {
+  [data-transcript-markdown][data-transcript-markdown-density="default"] :is(p, li) {
+    line-height: 1.65 !important;
+  }
+  [data-transcript-markdown] :not(pre) > code {
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: color-mix(in srgb, var(--color-foreground) 70%, var(--color-ring)) !important;
+  }
+}

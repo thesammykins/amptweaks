@@ -49,4 +49,6 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 
 - `GET /__amp-tweaks/data/threads.json`: thread ids and updated times from the `amp` CLI.
 - `POST /__amp-tweaks/act/archive?id=T-…[,T-…][&undo=1]`: archive or unarchive, in order per thread.
+- `POST /__amp-tweaks/act/refs` with `{root, paths}`: which paths exist under your home folder, resolved against the thread's root.
+- `POST /__amp-tweaks/act/open?path=…[&reveal=1]` or `?url=<GitHub commit>`: opens a file in your editor, shows it in Finder, or opens a commit. Files never open with their default app, so nothing can be launched this way.
 - `POST /__amp-tweaks/report?name=X`: writes the body to `~/Library/Logs/amp-tweaks-reports/X.json`.

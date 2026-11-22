@@ -193,9 +193,87 @@ async def archive(flow: http.HTTPFlow) -> None:
     respond(flow, 200, json.dumps({"ok": not failed, "count": len(ids), "done": done, "failed": failed}), "application/json")
 
 
+# open-refs: file paths in Amp's replies open on this Mac. Only existing paths under your home folder, and files
+# open in an editor (never with their default app), so a page script can't use this to launch anything.
+EDITORS = [os.environ.get("AMP_TWEAKS_EDITOR"), "Zed", "Visual Studio Code", "Cursor"]
+MAX_REFS = 200
+
+
+def _editor() -> str | None:
+    for name in filter(None, EDITORS):
+        if any(Path(root, f"{name}.app").exists() for root in ("/Applications", Path.home() / "Applications")):
+            return name
+    return None
+
+
+def _local(path: str, root: str | None) -> Path | None:
+    """An existing path under $HOME, from an absolute, ~ or root-relative path; None otherwise."""
+    if not path or len(path) > 1024 or "\0" in path:
+        return None
+    if path.startswith("~/"):
+        p = Path.home() / path[2:]
+    elif path.startswith("/"):
+        p = Path(path)
+    elif root and root.startswith("/"):
+        p = Path(root) / path
+    else:
+        return None
+    try:
+        p = p.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    return p if p.is_relative_to(Path.home()) else None
+
+
+def refs(flow: http.HTTPFlow) -> None:
+    """POST {root, paths: [...]} -> {path: absolute} for the paths that exist on this Mac."""
+    try:
+        body = json.loads(flow.request.raw_content or b"{}")
+        root, paths = body.get("root"), body.get("paths", [])[:MAX_REFS]
+    except (ValueError, AttributeError):
+        return respond(flow, 400, "bad body", "text/plain")
+    found = {}
+    for raw in paths:
+        p = _local(str(raw), root if isinstance(root, str) else None)
+        if p:
+            found[raw] = {"path": str(p), "dir": p.is_dir()}
+    respond(flow, 200, json.dumps(found), "application/json")
+
+
+COMMIT_URL = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+/commit/[0-9a-f]{7,40}$")
+
+
+async def open_ref(flow: http.HTTPFlow) -> None:
+    """POST ?path=<abs>[&reveal=1] opens a file in your editor or shows it in Finder; ?url= opens a GitHub commit."""
+    q = flow.request.query
+    if url := q.get("url"):
+        if not COMMIT_URL.match(url):
+            return respond(flow, 400, "only GitHub commit links", "text/plain")
+        args = ["open", url]
+    else:
+        p = _local(q.get("path", ""), None)
+        if not p:
+            return respond(flow, 404, "not a path under your home folder", "text/plain")
+        editor = _editor()
+        if q.get("reveal") or p.is_dir():
+            args = ["open", "-R", str(p)]
+        else:
+            args = ["open", "-a", editor, str(p)] if editor else ["open", "-t", str(p)]
+    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    _, err = await proc.communicate()
+    if proc.returncode != 0:
+        log.warning("amp-tweaks: %s failed: %s", " ".join(args[:3]), err.decode()[:200])
+        return respond(flow, 500, err.decode()[:200] or "open failed", "text/plain")
+    respond(flow, 204, b"", "text/plain")
+
+
 async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
     if name == "act/archive" and flow.request.method == "POST":
         return await archive(flow)
+    if name == "act/refs" and flow.request.method == "POST":
+        return refs(flow)
+    if name == "act/open" and flow.request.method == "POST":
+        return await open_ref(flow)
     if name == "report" and flow.request.method == "POST":
         return save_report(flow)
     if name == "data/threads.json":

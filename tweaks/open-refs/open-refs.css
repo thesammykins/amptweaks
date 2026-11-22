@@ -1,0 +1,9 @@
+/* Paths and commits that open: a quiet underline that firms up on hover. */
+[data-amp-tweaks-ref] {
+  cursor: pointer;
+  text-decoration: underline dotted color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 150ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-amp-tweaks-ref]:hover { text-decoration-style: solid; text-decoration-color: currentColor; }
+[data-amp-tweaks-opening] { opacity: 0.6; }

@@ -1,0 +1,71 @@
+/* Thread outline: right of the transcript column, your asks flush left and each answer's headings indented. */
+[data-amp-tweaks-outline] {
+  --outline-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: absolute;
+  z-index: 10;
+  top: 0.75rem;
+  right: 1rem;
+  width: 13.5rem;
+  max-height: calc(100% - 9rem);
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0.375rem;
+  /* A backing in the page's own colour, so images scrolling under it don't swallow the text. */
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-background) 86%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: opacity 220ms var(--outline-ease);
+  @starting-style { opacity: 0; }
+}
+[data-amp-tweaks-outline]::-webkit-scrollbar { display: none; }
+[data-amp-tweaks-outline][data-hidden] { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 160ms var(--outline-ease), visibility 0s 160ms; }
+
+[data-amp-tweaks-outline] button {
+  flex: none;
+  display: block;
+  width: 100%;
+  padding: 0.1875rem 0.5rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: 1.125rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 150ms var(--outline-ease), background-color 150ms var(--outline-ease);
+}
+[data-amp-tweaks-outline] [data-section] { display: flex; flex-direction: column; }
+
+/* An answer's headings stay folded until you're reading that section. */
+[data-amp-tweaks-outline] [data-fold] {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 280ms var(--outline-ease), opacity 180ms var(--outline-ease);
+}
+[data-amp-tweaks-outline] [data-section][data-open] [data-fold] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition: grid-template-rows 280ms var(--outline-ease), opacity 220ms var(--outline-ease) 60ms;
+}
+[data-amp-tweaks-outline] [data-fold] > div { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 1px; }
+[data-amp-tweaks-outline] [data-fold] button { visibility: hidden; transition: color 150ms var(--outline-ease), background-color 150ms var(--outline-ease), visibility 0s 280ms; }
+[data-amp-tweaks-outline] [data-section][data-open] [data-fold] button { visibility: visible; transition-delay: 0s; }
+[data-amp-tweaks-outline] [data-section][data-open] > button[data-kind="ask"] { color: var(--color-foreground); }
+[data-amp-tweaks-outline] button[data-kind="head"] { padding-left: 1rem; }
+[data-amp-tweaks-outline] button:hover { background: var(--color-accent); }
+[data-amp-tweaks-outline] button[data-active] { background: var(--color-accent); color: var(--color-foreground); }
+[data-amp-tweaks-outline] button:focus-visible { outline: 1px solid var(--color-ring); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-amp-tweaks-outline], [data-amp-tweaks-outline] button, [data-amp-tweaks-outline] [data-fold] { transition: none !important; }
+}

@@ -1,6 +1,6 @@
 # amptweaks
 
-Load your own CSS and JS into the Amp Mac app, the same way you'd use a userscript in a browser. It ships with one tweak, the focus sidebar, which swaps Amp's thread list for just the threads that need you and the ones still working.
+Load your own CSS and JS into the Amp Mac app, the same way you'd use a userscript in a browser. It ships with a handful of tweaks, each in its own folder so you can turn them off one at a time.
 
 This is an unofficial mod, it isn't made or supported by Amp.
 
@@ -26,9 +26,16 @@ This puts your proxy settings back the way they were, removes the certificate an
 
 Amp's Mac app is a native shell around ampcode.com, so tweaks go in at the network rather than by patching the app. A small proxy runs on your Mac and only ampcode.com is routed through it, everything else goes direct. It adds one script tag to Amp's pages, and that script loads the tweaks. The certificate it uses is restricted to ampcode.com, so it can't be used to intercept any other site. If the proxy stops, Amp connects directly and keeps working, just without tweaks.
 
-## Focus sidebar
+## Bundled tweaks
 
-What it does, with screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
+- `focus-sidebar` swaps Amp's thread list for just the threads that need you and the ones still working. Screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
+- `full-suggestions` shows each suggested reply in full, one per line above Amp's other quick actions, without the hover overlay.
+- `ask-pin` keeps the agent's question above the composer when it has scrolled out of view and you haven't answered yet. Click it to jump back to where it was asked.
+- `thread-outline` lists what you asked down the right of long threads, and opens the headings of the section you're reading. It shows only when the window is wide enough.
+- `open-refs` makes file paths and commits in replies clickable. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
+- `calm-reading` adds a little line spacing to replies and tints inline code instead of boxing it.
+
+Turn any of them off with `amp-tweaks tweaks disable <name>`.
 
 ## Your own tweaks
 
