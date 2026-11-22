@@ -50,6 +50,7 @@
     }
     if (!o || !o.nav.isConnected) {
       o?.nav.remove();
+      o?.rail.remove();
       const nav = document.createElement("nav");
       nav.dataset.ampTweaksOutline = "";
       nav.setAttribute("aria-label", "Thread outline");
@@ -59,8 +60,15 @@
         if (!item?.el.isConnected) return;
         item.el.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       });
-      host(scroller).append(nav);
-      o = { nav, items: [], sig: "", raf: 0 };
+      // While an image is level with the outline it tucks away to the right; this strip along the edge
+      // (wider than the line it shows) brings it back on hover.
+      const rail = document.createElement("div");
+      rail.dataset.ampTweaksOutlineRail = "";
+      rail.setAttribute("aria-hidden", "true");
+      host(scroller).append(nav, rail);
+      o = { nav, rail, items: [], sig: "", raf: 0, closeTimer: 0 };
+      peekOn(o, rail);
+      peekOn(o, nav);
       outlines.set(scroller, o);
       scroller.addEventListener("scroll", () => {
         if (o.raf) return;
@@ -109,11 +117,29 @@
     return false;
   }
 
+  // Hovering the rail or the peeking outline keeps it out; leaving both tucks it away after a short grace
+  // period, so moving from the rail onto the outline as it slides out doesn't snap it shut.
+  function peekOn(o, el) {
+    el.addEventListener("pointerenter", () => {
+      clearTimeout(o.closeTimer);
+      if (o.nav.hasAttribute("data-covered")) o.nav.dataset.peek = "";
+    });
+    el.addEventListener("pointerleave", () => {
+      clearTimeout(o.closeTimer);
+      o.closeTimer = setTimeout(() => delete o.nav.dataset.peek, 260);
+    });
+  }
+
   // The last item whose top has scrolled past a quarter of the way down the transcript.
   function mark(scroller) {
     const o = outlines.get(scroller);
     if (!o || o.nav.dataset.hidden !== undefined) return;
-    o.nav.toggleAttribute("data-covered", covered(scroller, o.nav));
+    const isCovered = covered(scroller, o.nav);
+    o.nav.toggleAttribute("data-covered", isCovered);
+    o.rail.toggleAttribute("data-show", isCovered);
+    if (!isCovered) delete o.nav.dataset.peek;
+    o.rail.style.top = `${o.nav.offsetTop}px`;
+    o.rail.style.height = `${o.nav.offsetHeight}px`;
     const box = scroller.getBoundingClientRect();
     const line = box.top + box.height * 0.25;
     let active = 0;
@@ -135,7 +161,7 @@
 
   function sweep() {
     queued = false;
-    for (const [scroller, o] of outlines) if (!scroller.isConnected) { o.nav.remove(); outlines.delete(scroller); }
+    for (const [scroller, o] of outlines) if (!scroller.isConnected) { o.nav.remove(); o.rail.remove(); outlines.delete(scroller); }
     for (const scroller of document.querySelectorAll("[data-thread-transcript-scroll]")) update(scroller);
   }
 

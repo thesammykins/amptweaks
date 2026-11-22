@@ -1,0 +1,155 @@
+/* Quick replies: one chip in Amp's quick-action row, and a menu above it holding Amp's own reply buttons.
+   The chip copies Amp's reply-chip classes at runtime; the menu uses Amp's menu tokens (popover surface,
+   shadow-popover, rounded-md, rounded-sm items with the accent highlight).
+   Everything keys off data-amp-tweaks-qr on the row, so if the script doesn't run Amp's row is untouched. */
+
+/* ---------- Amp's elements (layered + !important to beat Amp's own rules) ---------- */
+@layer amp-tweaks {
+  [data-thread-quick-action-row][data-amp-tweaks-qr] {
+    position: relative !important;
+    overflow: visible !important;
+  }
+  [data-amp-tweaks-qr] [data-thread-quick-action-scroller] {
+    overflow: visible !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+  }
+  [data-amp-tweaks-qr] [data-horizontal-scrollbar-thumb] { display: none !important; }
+
+  /* Amp's reply buttons, lifted out of the row into the menu, one per line from the bottom up. */
+  [data-amp-tweaks-qr] [data-amp-tweaks-qr-slot] {
+    display: flex !important;
+    position: absolute !important;
+    z-index: 31;
+    left: var(--qr-pad);
+    width: calc(var(--qr-w) - 2 * var(--qr-pad));
+    bottom: calc(100% + var(--qr-gap) + var(--qr-pad) + var(--qr-slot) * var(--qr-row));
+    pointer-events: none;
+    opacity: 0;
+    translate: 0 4px;
+    transition: opacity 140ms var(--qr-ease), translate 200ms var(--qr-ease);
+    animation: none !important;
+  }
+  [data-amp-tweaks-qr] [data-amp-tweaks-qr-slot] > * { display: flex !important; width: 100%; min-width: 0; }
+  [data-amp-tweaks-qr][data-amp-tweaks-qr-open] [data-amp-tweaks-qr-slot] { pointer-events: auto; opacity: 1; translate: 0 0; }
+
+  /* In the menu a reply reads as a menu item, not a chip. */
+  [data-amp-tweaks-qr-slot] [data-suggested-quick-action] {
+    width: 100% !important;
+    max-width: none !important;
+    height: var(--qr-row) !important;
+    padding: 0 0.5rem !important;
+    gap: 0.5rem !important;
+    border-radius: var(--radius-sm, 0.25rem) !important;
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    opacity: 1 !important;
+    color: var(--color-popover-foreground) !important;
+    font-size: var(--text-sm) !important;
+  }
+  [data-amp-tweaks-qr-slot] [data-suggested-quick-action]::before { display: none !important; }
+  [data-amp-tweaks-qr-slot] [data-suggested-quick-action]:hover,
+  [data-amp-tweaks-qr-slot] [data-suggested-quick-action]:focus-visible {
+    background: var(--color-accent) !important;
+    color: var(--color-accent-foreground, var(--color-foreground)) !important;
+  }
+  [data-suggested-quick-action][data-amp-tweaks-full] > span:last-of-type { display: none !important; }
+  [data-suggested-quick-action][data-amp-tweaks-full]::after {
+    content: attr(data-amp-tweaks-full);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Amp's own hover overlay for a reply; the menu already shows each one in full. */
+  html[data-amp-tweaks-quick-replies] [data-suggestion-reply-expanded] { display: none !important; }
+}
+
+/* ---------- our chip and menu (unlayered, so Amp's base button styles don't win) ---------- */
+[data-thread-quick-action-row][data-amp-tweaks-qr] {
+  --qr-ease: cubic-bezier(0.2, 0.9, 0.3, 1);
+  --qr-w: min(28rem, calc(var(--thread-column-max-width, 42rem) - 2rem));
+  --qr-row: 1.875rem;
+  --qr-pad: 0.25rem;
+  --qr-gap: 0.375rem;
+}
+
+[data-amp-tweaks-qr-chip] { cursor: pointer; }
+[data-amp-tweaks-qr-chip] [data-icon] {
+  display: inline-grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+}
+[data-amp-tweaks-qr-chip][data-asking="true"] [data-icon] { background: var(--color-warning); color: var(--color-background); }
+[data-amp-tweaks-qr-open] [data-amp-tweaks-qr-chip] { background-color: var(--color-accent); }
+
+[data-amp-tweaks-qr-list] {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  bottom: calc(100% + var(--qr-gap));
+  width: var(--qr-w);
+  padding: var(--qr-pad);
+  border-radius: var(--radius-md, 0.375rem);
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  box-shadow: var(--shadow-popover, 0 0.75rem 2rem rgb(0 0 0 / 0.35));
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 4px;
+  transition: opacity 140ms var(--qr-ease), translate 200ms var(--qr-ease);
+}
+[data-amp-tweaks-qr-open] [data-amp-tweaks-qr-list] { pointer-events: auto; opacity: 1; translate: 0 0; }
+
+/* The question heads the menu like a menu label; clicking it scrolls to where it was asked. */
+[data-amp-tweaks-qr-list] [data-ask] {
+  display: none;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  height: var(--qr-row);
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: var(--radius-sm, 0.25rem);
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--qr-ease), color 120ms var(--qr-ease);
+}
+[data-amp-tweaks-qr-list][data-asking] [data-ask] { display: flex; }
+[data-amp-tweaks-qr-list] [data-ask]:hover { background: var(--color-accent); color: var(--color-foreground); }
+[data-amp-tweaks-qr-list] [data-verb] { flex: none; color: var(--color-warning); font-weight: 500; }
+[data-amp-tweaks-qr-list] [data-text] { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+[data-amp-tweaks-qr-slot="0"] { --qr-slot: 0; }
+[data-amp-tweaks-qr-slot="1"] { --qr-slot: 1; }
+[data-amp-tweaks-qr-slot="2"] { --qr-slot: 2; }
+[data-amp-tweaks-qr-slot="3"] { --qr-slot: 3; }
+[data-amp-tweaks-qr-slot="4"] { --qr-slot: 4; }
+[data-amp-tweaks-qr-slot="5"] { --qr-slot: 5; }
+
+/* Where the question was asked, briefly marked after jumping to it. */
+[data-amp-tweaks-qr-flash] { border-radius: 0.375rem; animation: amp-tweaks-qr-flash 1.6s cubic-bezier(0.2, 0.9, 0.3, 1); }
+@keyframes amp-tweaks-qr-flash {
+  0%, 30% { background-color: var(--color-accent); }
+  100% { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-amp-tweaks-qr-list], [data-amp-tweaks-qr-slot] { transition: opacity 100ms linear !important; translate: none !important; }
+}
