@@ -16,7 +16,7 @@ window.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === "string" ? input : input.url, location.href);
   const p = url.pathname;
   if (p.startsWith("/api/threads/")) return json({
-    env: { initial: { trees: [{ uri: "file:///Users/demo/billing", repository: { url: "https://github.com/acme/billing.git" } }] } },
+    env: { initial: { runnerID: "demo-mac", hostname: "demo-mac.local", trees: [{ uri: "file:///Users/demo/billing", repository: { url: "https://github.com/acme/billing.git" } }] } },
     meta: { statusMessage: { text: ASK, waitingOnInput: true } },
   });
   if (p === "/__amp-tweaks/act/refs") {

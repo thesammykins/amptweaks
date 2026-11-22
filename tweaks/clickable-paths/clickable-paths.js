@@ -1,6 +1,7 @@
 // File paths and commit hashes in Amp's replies become links. A path opens in your editor (⌥-click shows it in
-// Finder); a commit opens on GitHub. Only paths that exist on this Mac are marked, so threads that ran in an orb
-// or on another machine stay as they are. The proxy does the opening (/__amp-tweaks/act/open).
+// Finder); a commit opens on GitHub. Paths are only marked in threads that ran on a runner on this Mac, and only
+// when they exist here: an orb's files, or another machine's, stay with Amp, which opens them in its own tab.
+// The proxy decides whether the runner is this Mac (/__amp-tweaks/act/refs) and does the opening (act/open).
 (() => {
   const TAG = "[clickable-paths]";
   const PATH = /^(~\/|\/|\.{1,2}\/)?[\w@.+-]+(\/[\w@.+-]+)*\/?$/;
@@ -20,11 +21,13 @@
         const tree = env.trees?.[0] ?? {};
         const uri = tree.uri ?? env.workingDirectory ?? "";
         const repo = tree.repository?.url?.match(/github\.com[/:]([\w.-]+\/[\w.-]+?)(\.git)?$/)?.[1] ?? null;
-        return { root: uri.startsWith("file://") ? decodeURIComponent(uri.slice(7)) : null, repo };
+        // Orb threads have no runner; runner threads name the machine they ran on.
+        const runner = env.runnerID || env.hostname ? { id: env.runnerID ?? null, hostname: env.hostname ?? null } : null;
+        return { root: uri.startsWith("file://") ? decodeURIComponent(uri.slice(7)) : null, repo, runner };
       } catch (e) {
         console.warn(TAG, "thread info unavailable", id, e.message);
         roots.delete(id);
-        return { root: null, repo: null };
+        return { root: null, repo: null, runner: null };
       }
     })());
     return roots.get(id);
@@ -56,16 +59,16 @@
   }
 
   async function mark(id, refs) {
-    const { root, repo } = await threadInfo(id);
+    const { root, repo, runner } = await threadInfo(id);
     for (const r of refs) if (r.kind === "commit" && repo) {
       r.code.dataset.ampTweaksRef = "commit";
       r.code.dataset.ampTweaksUrl = `https://github.com/${repo}/commit/${r.value}`;
       r.code.title = "Open commit on GitHub";
     }
     const paths = [...new Set(refs.filter(r => r.kind === "path").map(r => r.value))];
-    if (!paths.length) return;
+    if (!paths.length || !runner) return;
     try {
-      const res = await fetch("/__amp-tweaks/act/refs", { method: "POST", body: JSON.stringify({ root, paths }) });
+      const res = await fetch("/__amp-tweaks/act/refs", { method: "POST", body: JSON.stringify({ root, runner, paths }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const found = await res.json();
       for (const r of refs) {

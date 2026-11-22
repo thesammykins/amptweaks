@@ -52,7 +52,7 @@ What you asked, down the right of long threads, with the headings of the section
 
 ### Clickable paths (`clickable-paths`)
 
-File paths and commits in replies become links. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
+In threads that ran on a runner on this Mac, file paths in replies open in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), and ⌥-click shows them in Finder. Orb threads and threads from other machines are left to Amp, which opens their files in its own tabs. Commits open on GitHub.
 
 <img src="tweaks/clickable-paths/images/hover.png" width="420" alt="A file path in a reply, underlined under the pointer">
 

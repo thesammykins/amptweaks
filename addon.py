@@ -224,7 +224,7 @@ async def archive(flow: http.HTTPFlow) -> None:
     respond(flow, 200, json.dumps({"ok": not failed, "count": len(ids), "done": done, "failed": failed}), "application/json")
 
 
-# open-refs: file paths in Amp's replies open on this Mac. Only existing paths under your home folder, and files
+# clickable-paths: file paths in Amp's replies open on this Mac. Only existing paths under your home folder, and files
 # open in an editor (never with their default app), so a page script can't use this to launch anything.
 EDITORS = [os.environ.get("AMP_TWEAKS_EDITOR"), "Zed", "Visual Studio Code", "Cursor"]
 MAX_REFS = 200
@@ -256,13 +256,58 @@ def _local(path: str, root: str | None) -> Path | None:
     return p if p.is_relative_to(Path.home()) else None
 
 
-def refs(flow: http.HTTPFlow) -> None:
-    """POST {root, paths: [...]} -> {path: absolute} for the paths that exist on this Mac."""
+# A thread's files are only on this Mac when it ran on a runner here. Amp records the runner's id and hostname;
+# this Mac is known by its host names and the runner ids `amp runner list` reports. Cached: runners rarely change.
+LOCAL_TTL = 300.0
+_local_cache: tuple[float, set[str], set[str]] = (0.0, set(), set())
+
+
+def _short(host: str | None) -> str:
+    return (host or "").split(".")[0].strip().lower()
+
+
+async def local_identity() -> tuple[set[str], set[str]]:
+    """(this Mac's short host names, runner ids running here)."""
+    global _local_cache
+    if time.monotonic() - _local_cache[0] < LOCAL_TTL:
+        return _local_cache[1], _local_cache[2]
+    import socket
+    names = {_short(socket.gethostname())}
+    for key in ("LocalHostName", "ComputerName"):
+        try:  # launchd's PATH has no /usr/sbin
+            proc = await asyncio.create_subprocess_exec("/usr/sbin/scutil", "--get", key, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            out, _ = await proc.communicate()
+            names.add(_short(out.decode()))
+        except OSError as e:
+            log.warning("amp-tweaks: scutil --get %s failed: %s", key, e)
+    runners: set[str] = set()
+    try:
+        proc = await asyncio.create_subprocess_exec(AMP_CLI, "runner", "list", "--json", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out, err = await asyncio.wait_for(proc.communicate(), 15)
+        runners = {r["runnerId"] for r in json.loads(out).get("runners", []) if r.get("runnerId")}
+    except (OSError, ValueError, asyncio.TimeoutError) as e:
+        log.warning("amp-tweaks: amp runner list failed, matching on host name only: %s", e)
+    names.discard("")
+    _local_cache = (time.monotonic(), names, runners)
+    return names, runners
+
+
+async def ran_here(runner: dict) -> bool:
+    """True when a thread's runner ({id, hostname} from Amp's thread env) is this Mac. Orb threads have neither."""
+    names, runners = await local_identity()
+    return bool((runner.get("id") and runner["id"] in runners) or (runner.get("hostname") and _short(runner["hostname"]) in names))
+
+
+async def refs(flow: http.HTTPFlow) -> None:
+    """POST {root, runner: {id, hostname}, paths: [...]} -> {path: {path, dir}} for the paths that exist here.
+    Empty unless the thread ran on this Mac, so an orb's or another machine's paths never open local files."""
     try:
         body = json.loads(flow.request.raw_content or b"{}")
-        root, paths = body.get("root"), body.get("paths", [])[:MAX_REFS]
+        root, runner, paths = body.get("root"), body.get("runner") or {}, body.get("paths", [])[:MAX_REFS]
     except (ValueError, AttributeError):
         return respond(flow, 400, "bad body", "text/plain")
+    if not isinstance(runner, dict) or not await ran_here(runner):
+        return respond(flow, 200, "{}", "application/json")
     found = {}
     for raw in paths:
         p = _local(str(raw), root if isinstance(root, str) else None)
@@ -306,7 +351,7 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
     if name == "act/tweak" and flow.request.method == "POST":
         return set_tweak(flow)
     if name == "act/refs" and flow.request.method == "POST":
-        return refs(flow)
+        return await refs(flow)
     if name == "act/open" and flow.request.method == "POST":
         return await open_ref(flow)
     if name == "report" and flow.request.method == "POST":
