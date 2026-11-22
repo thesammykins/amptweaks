@@ -13,7 +13,7 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 
 ## When Amp changes under the hood
 
-1. Check `~/Library/Logs/amp-tweaks-reports/errors.json` and `amp-tweaks logs`.
+1. Run `amp-tweaks status` to see which layer broke: routing (macOS can cache a failed PAC fetch and go direct with the setting still on; `amp-tweaks repair` fixes it), Amp not loading the tweaks (quit and reopen it), or Amp's markup (the sidebar line lists missing hooks from `AMP_HOOKS` in `tweaks/focus-sidebar/amp/dom.js`). Then check `~/Library/Logs/amp-tweaks-reports/errors.json` and `amp-tweaks logs`.
 2. Add a temporary `zz-probe.js` that posts what it sees to `/__amp-tweaks/report?name=probe`, then read `~/Library/Logs/amp-tweaks-reports/probe.json`. Delete it when you're done.
 3. Update the selectors in one place (in the focus sidebar, that's `tweaks/focus-sidebar/amp/`).
 4. Prove it in the running app with a report or screenshot. This repo has no test suite, don't add one.

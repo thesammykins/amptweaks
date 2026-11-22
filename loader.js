@@ -73,6 +73,8 @@
     document.head.appendChild(s);
   }
   log(`loaded ${m.css.length} css, ${m.js.length} js, ${(m.modules ?? []).length} module tweaks`);
+  // `amp-tweaks status` compares this with Amp's launch time to tell whether the running Amp has tweaks.
+  if (appState) try { navigator.sendBeacon(`${BASE}report?name=loaded`, JSON.stringify({ url: location.href, at: new Date().toISOString(), tweaks: [...m.css, ...m.js, ...(m.modules ?? [])] })); } catch {}
 
   // Live reload: CSS swaps in place; any JS change reloads the page.
   let { cssVersion, jsVersion } = m;

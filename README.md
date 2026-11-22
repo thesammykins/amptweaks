@@ -48,6 +48,7 @@ Errors from tweaks are written to `~/Library/Logs/amp-tweaks-reports/errors.json
 ## If something's off
 
 - No tweaks after installing: quit and reopen Amp, since connections it already had open skip the proxy.
+- Tweaks stopped working: run `amp-tweaks status`. It says whether macOS is still sending Amp through the proxy, whether the running Amp has loaded the tweaks, and whether an Amp update moved something the focus sidebar relies on. If routing says macOS is ignoring it, `amp-tweaks repair`, then quit and reopen Amp. The proxy also checks this every 5 minutes and fixes it itself.
 - Amp looks broken: `amp-tweaks tweaks disable focus-sidebar` to rule the sidebar out, or `amp-tweaks disable` to take everything out of the path.
 
 ## Requirements

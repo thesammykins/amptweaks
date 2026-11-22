@@ -1,4 +1,17 @@
 // Amp adapter (read side): everything that reads Amp's sidebar DOM. When Amp changes its markup, fix it here.
+// The parts of Amp's sidebar this tweak depends on. The sidebar report lists any that are missing, so
+// `amp-tweaks status` can say when an Amp update moved them.
+export const AMP_HOOKS = {
+  list: '[data-slot="sidebar"] [data-testid="sidebar-thread-list"]',
+  rows: "a[data-sidebar-thread-id]",
+  titles: "a[data-sidebar-thread-id] [data-title-text]",
+  icons: "a[data-sidebar-thread-id] [data-thread-row-icon]",
+  chips: "[data-sidebar-activity-filter-running]",
+  filter: "[data-sidebar-filter-menu]",
+  search: '[data-testid="sidebar-list-search"]',
+};
+export const missingHooks = () => Object.entries(AMP_HOOKS).filter(([, sel]) => !document.querySelector(sel)).map(([name]) => name);
+
 // ---------- Amp DOM: rows, families, live signals, icons ----------
 export const ampRow = id => document.querySelector(`a[data-sidebar-thread-id="${CSS.escape(id)}"]`);
 

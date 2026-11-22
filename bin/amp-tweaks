@@ -42,6 +42,29 @@ make_ca() {
 
 ca_trusted() { security verify-cert -c "$CA_DIR/cert.pem" -p ssl >/dev/null 2>&1; }
 
+# Asks macOS itself (which honours the PAC, unlike curl) where ampcode.com goes.
+# 0: through the proxy. 1: straight to ampcode.com. 2: no answer (offline, or ampcode.com down).
+# macOS caches a failed fetch of the PAC and then goes direct with the setting still on; an Amp update that
+# relaunched Amp at the wrong moment broke tweaks this way.
+routed() {
+  local body
+  body=$(osascript -l JavaScript -e 'ObjC.import("Foundation"); const d = $.NSData.dataWithContentsOfURL($.NSURL.URLWithString("https://ampcode.com/__amp-tweaks/manifest.json")); d.isNil() ? "" : $.NSString.alloc.initWithDataEncoding(d, $.NSUTF8StringEncoding).js' 2>/dev/null)
+  [[ $body == *'"modules"'* ]] && return 0
+  [[ -n $body ]] && return 1
+  return 2
+}
+
+# Turning the PAC off and on makes macOS fetch it again, which clears a cached failure.
+refetch_pac() {
+  services | while read -r svc; do
+    networksetup -getautoproxyurl "$svc" | grep -qF "$PAC_URL" || continue
+    networksetup -setautoproxystate "$svc" off
+    networksetup -setautoproxystate "$svc" on
+  done
+}
+
+amp_pid() { pgrep -x Amp | head -1; }
+
 cmd=${1:-help}
 [[ $# -gt 0 ]] && shift
 
@@ -50,6 +73,18 @@ case $cmd in
     [[ -f "$CA_DIR/mitmproxy-ca.pem" ]] || die "no CA yet; run: amp-tweaks enable"
     # launchd appends to the log forever; start fresh once it passes 2 MB (in place, so launchd's handle stays valid).
     [[ -f "$LOG" ]] && (( $(stat -f %z "$LOG") > 2097152 )) && : > "$LOG"
+    # Every 5 minutes, check macOS still routes ampcode.com through us and make it re-fetch the PAC if not.
+    # launchd stops this loop along with the proxy.
+    {
+      sleep 30
+      while :; do
+        if routed; then :; elif (( $? == 1 )); then
+          print -r -- "[$(date +%T)] amp-tweaks: macOS was sending ampcode.com direct; re-fetched the PAC (quit and reopen Amp to pick it up)"
+          refetch_pac
+        fi
+        sleep 300
+      done
+    } &
     exec mitmdump \
       --set confdir="$CA_DIR" \
       --set connection_strategy=lazy \
@@ -136,11 +171,42 @@ PLIST
 
   status)
     if launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then say "proxy:    running"; else say "proxy:    not running"; fi
-    scutil --proxy | grep -q "ProxyAutoConfigURLString : $PAC_URL" && say "routing:  on ($PAC_URL)" || say "routing:  off"
+    if scutil --proxy | grep -q "ProxyAutoConfigURLString : $PAC_URL"; then
+      if routed; then say "routing:  on"
+      elif (( $? == 1 )); then say "routing:  on, but macOS is ignoring it (run: amp-tweaks repair)"
+      else say "routing:  on (couldn't reach ampcode.com to check)"; fi
+    else
+      say "routing:  off"
+    fi
     [[ -f "$CA_DIR/cert.pem" ]] && { ca_trusted && say "CA:       trusted" || say "CA:       not trusted"; } || say "CA:       not created"
+    reports=~/Library/Logs/amp-tweaks-reports
+    plist=/Applications/Amp.app/Contents/Info.plist
+    if [[ -f $plist ]]; then
+      line="Amp:      build $(defaults read "$plist" CFBundleVersion 2>/dev/null), installed $(date -r "$(stat -f %m "$plist")" '+%-d %b %H:%M')"
+      if pid=$(amp_pid) && [[ -n $pid ]]; then
+        started=$(date -j -f '%a %d %b %T %Y' "$(LC_ALL=C ps -o lstart= -p "$pid" | xargs)" +%s 2>/dev/null || echo 0)
+        if [[ -f $reports/loaded.json ]] && (( $(stat -f %m "$reports/loaded.json") >= started )); then
+          line+=", tweaks loaded $(date -r "$(stat -f %m "$reports/loaded.json")" +%H:%M)"
+        else
+          line+=", running without tweaks (quit and reopen Amp)"
+        fi
+      fi
+      say "$line"
+    fi
+    if [[ -f $reports/focus-sidebar.json ]]; then
+      missing=$(plutil -extract missing json -o - "$reports/focus-sidebar.json" 2>/dev/null | tr -d '[]"' | sed 's/,/, /g' || true)
+      at=$(date -r "$(stat -f %m "$reports/focus-sidebar.json")" '+%-d %b %H:%M')
+      [[ -n $missing ]] && say "sidebar:  Amp's sidebar changed, can't find: $missing ($at)" || say "sidebar:  ok ($at)"
+    fi
     say "tweaks:   $TWEAKS_DIR (+ bundled in $ROOT/tweaks)"
     say "log:      $LOG"
-    say "reports:  ~/Library/Logs/amp-tweaks-reports"
+    say "reports:  $reports"
+    ;;
+
+  repair)
+    refetch_pac
+    if routed; then say "macOS is routing ampcode.com through the proxy again: quit and reopen Amp"
+    else say "still not routed; check: amp-tweaks status, amp-tweaks logs"; exit 1; fi
     ;;
 
   tweaks)
@@ -183,7 +249,8 @@ usage: amp-tweaks <command>
   enable              start the proxy, trust its ampcode.com-only CA, route ampcode.com through it
   disable [--untrust] undo enable (restores previous proxy settings; --untrust also removes the CA)
   uninstall           disable, remove the CA, logs and app; keeps your ~/.amp-tweaks
-  status              what's running
+  status              what's running, and whether Amp is actually getting the tweaks
+  repair              make macOS re-read the proxy settings when status says it's ignoring them
   tweaks              list tweaks (bundled and yours) and whether they're on
   tweaks disable N    turn a tweak off (e.g. focus-sidebar)
   tweaks enable N     turn it back on

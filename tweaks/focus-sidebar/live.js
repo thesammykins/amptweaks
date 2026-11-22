@@ -1,7 +1,7 @@
 // The loop: watch Amp's sidebar for changes, refresh on a timer, recompute the model, render; start().
 import { archive, archiveAllDone, archiveAndAdvance, archiveItems, dismissed, findItem, undoLast, undoStack } from "./actions.js";
 import { navigate, openAmpMenu } from "./amp/actions.js";
-import { ampSearch, readAmp, readRow } from "./amp/dom.js";
+import { ampSearch, missingHooks, readAmp, readRow } from "./amp/dom.js";
 import { RECENT_MS } from "./config.js";
 import { computeMe, due, fetchMany, fetchOne, loadCli } from "./data.js";
 import { onRowKey } from "./input.js";
@@ -223,7 +223,7 @@ export function start() {
     setTimeout(() => {
       const r = sel => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().left) : null; };
       const report = {
-        url: location.href, me: !!S.me, cached: cache.size, mode: prefs.mode, loading: S.loading,
+        url: location.href, missing: missingHooks(), me: !!S.me, cached: cache.size, mode: prefs.mode, loading: S.loading,
         top: S.model.length,
         counts: S.model.reduce((m, i) => ((m[i.kind] = (m[i.kind] ?? 0) + 1), m), {}),
         families: S.model.filter(i => i.children.length).map(i => ({ title: i.d.title?.slice(0, 40), space: !!i.space, lead: i.lead, children: i.children.map(c => c.kind), finished: i.finished })),
