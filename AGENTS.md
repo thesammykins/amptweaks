@@ -10,6 +10,7 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 - Style with Amp's tokens (`--color-*`, `--text-*`). To beat Amp's own `!important` rules, use `@layer amp-tweaks { … !important }`.
 - Act through Amp, not around it. Clicks, navigation and menus go through Amp's own (hidden) rows. Space threads 500 if you follow their href, and Amp's buttons ignore synthetic `.click()`.
 - Fail open. If a tweak can't find what it needs, leave Amp's UI visible.
+- After restarting the proxy, quit and reopen Amp. While the proxy is down Amp opens a direct connection to ampcode.com, and later reloads can go over it without tweaks.
 
 ## When Amp changes under the hood
 
