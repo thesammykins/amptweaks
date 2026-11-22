@@ -28,15 +28,45 @@ Amp's Mac app is a native shell around ampcode.com, so tweaks go in at the netwo
 
 ## Bundled tweaks
 
-- `focus-sidebar` swaps Amp's thread list for just the threads that need you and the ones still working. Screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
-- `quick-replies` folds Amp's suggested replies into one chip ("3 replies"). Hover or click it for the full list. When the agent is waiting on you the chip shows a ? and the list starts with its question, which scrolls back to where it was asked.
-- `thread-outline` lists what you asked down the right of long threads, and opens the headings of the section you're reading. Beside images it tucks into a rail on the right edge; hover the rail to bring it back. It shows only when the window is wide enough.
-- `clickable-paths` makes file paths and commits in replies clickable. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
-- `calm-reading` adds a little line spacing to replies and tints inline code instead of boxing it.
+Each one is its own folder, so you can switch them separately. The screenshots come from demo pages with made-up threads.
 
-- `tweak-settings` adds a Tweaks button to Amp's left rail, above your profile, to turn each tweak on or off. A tweak with a script reloads Amp when you switch it; style-only ones switch in place.
+### Tweaks menu (`tweak-settings`)
 
-From the terminal: `amp-tweaks tweaks disable <name>` and `amp-tweaks tweaks enable <name>`. Both write `~/.amp-tweaks/disabled`, so the app and the CLI always agree.
+A button in Amp's left rail, above your profile, to turn each tweak on or off. A tweak with a script reloads Amp when you switch it; style-only ones switch in place. From the terminal, `amp-tweaks tweaks disable <name>` and `enable <name>` do the same: both write `~/.amp-tweaks/disabled`, so the app and the CLI always agree.
+
+<img src="tweaks/tweak-settings/images/open.gif" width="300" alt="The Tweaks button opening a menu of tweaks with checkmarks">
+
+### Quick replies (`quick-replies`)
+
+Amp's suggested replies fold into one chip. Hover or click it for the full list. When the agent is waiting on you, the chip shows a ? and the list starts with its question, which scrolls back to where it was asked. Picking a reply is a click on Amp's own reply button.
+
+| Amp | Quick replies |
+| --- | --- |
+| <img src="tweaks/quick-replies/images/before.png" width="420" alt="Amp's suggested replies, cut off in a row"> | <img src="tweaks/quick-replies/images/open.gif" width="420" alt="One chip opening the agent's question and three replies"> |
+
+### Thread outline (`thread-outline`)
+
+What you asked, down the right of long threads, with the headings of the section you're reading. Beside images it tucks into a rail on the right edge; hover the rail to bring it back. It shows only when the window is wide enough.
+
+<img src="tweaks/thread-outline/images/rail.gif" width="420" alt="The outline tucking into a rail beside images and sliding back">
+
+### Clickable paths (`clickable-paths`)
+
+File paths and commits in replies become links. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
+
+<img src="tweaks/clickable-paths/images/hover.png" width="420" alt="A file path in a reply, underlined under the pointer">
+
+### Calm reading (`calm-reading`)
+
+A little more space between lines, and inline code tinted instead of boxed.
+
+| Amp | Calm reading |
+| --- | --- |
+| <img src="tweaks/calm-reading/images/before.png" width="420" alt="A reply with boxed inline code"> | <img src="tweaks/calm-reading/images/after.png" width="420" alt="The same reply with tinted inline code and more line spacing"> |
+
+### Focus sidebar (`focus-sidebar`)
+
+Swaps Amp's thread list for just the threads that need you and the ones still working. Screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
 
 ## Your own tweaks
 

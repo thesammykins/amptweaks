@@ -41,9 +41,9 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 | Thread data from the proxy and Amp's API | `data.js` |
 | Look and feel | `focus-sidebar.css` |
 
-## Demo page and screenshots
+## Demo pages and screenshots
 
-`tweaks/focus-sidebar/_demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve `tweaks/focus-sidebar` (`python3 -m http.server`) and open `/_demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node tweaks/focus-sidebar/_demo/shoot.mjs [name…]` re-renders the screenshots in `tweaks/focus-sidebar/images/` for the tweak's README. The `_` prefix keeps the loader from injecting the demo into Amp. Never screenshot the live app for a README: it shows real threads.
+`tweaks/focus-sidebar/_demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve `tweaks/focus-sidebar` (`python3 -m http.server`) and open `/_demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node tweaks/focus-sidebar/_demo/shoot.mjs [name…]` re-renders the screenshots in `tweaks/focus-sidebar/images/` for the tweak's README. The `_` prefix keeps the loader from injecting the demo into Amp. `tweaks/_thread-demo/` does the same for Amp's thread pane and rail and runs the thread tweaks (`?tweaks=quick-replies,thread-outline`, or `?tweaks=off`). Serve `tweaks/` and open `/_thread-demo/`. `node tweaks/_thread-demo/shoot.mjs [tweak/shot…]` writes each tweak's `images/`, including GIFs of the animations. Both shooters share `tweaks/_shoot/chrome.mjs`. Never screenshot the live app for a README: it shows real threads.
 
 ## Useful endpoints
 
