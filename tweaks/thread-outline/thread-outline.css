@@ -22,6 +22,7 @@
   @starting-style { opacity: 0; }
 }
 [data-amp-tweaks-outline]::-webkit-scrollbar { display: none; }
+[data-amp-tweaks-outline][data-covered] { opacity: 0; pointer-events: none; transition: opacity 180ms var(--outline-ease); }
 [data-amp-tweaks-outline][data-hidden] { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 160ms var(--outline-ease), visibility 0s 160ms; }
 
 [data-amp-tweaks-outline] button {

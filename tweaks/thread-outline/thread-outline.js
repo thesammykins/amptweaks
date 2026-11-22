@@ -99,10 +99,21 @@
     mark(scroller);
   }
 
+  // Steps aside while an image or gallery is level with it, so it never competes with a picture.
+  function covered(scroller, nav) {
+    const r = nav.getBoundingClientRect();
+    for (const m of scroller.querySelectorAll("[data-transcript-gallery], [data-transcript-markdown] img, [data-transcript-message-content] img")) {
+      const b = m.getBoundingClientRect();
+      if (b.width && b.bottom > r.top && b.top < r.bottom) return true;
+    }
+    return false;
+  }
+
   // The last item whose top has scrolled past a quarter of the way down the transcript.
   function mark(scroller) {
     const o = outlines.get(scroller);
     if (!o || o.nav.dataset.hidden !== undefined) return;
+    o.nav.toggleAttribute("data-covered", covered(scroller, o.nav));
     const box = scroller.getBoundingClientRect();
     const line = box.top + box.height * 0.25;
     let active = 0;
