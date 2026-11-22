@@ -2,7 +2,7 @@
 // Finder); a commit opens on GitHub. Only paths that exist on this Mac are marked, so threads that ran in an orb
 // or on another machine stay as they are. The proxy does the opening (/__amp-tweaks/act/open).
 (() => {
-  const TAG = "[open-refs]";
+  const TAG = "[clickable-paths]";
   const PATH = /^(~\/|\/|\.{1,2}\/)?[\w@.+-]+(\/[\w@.+-]+)*\/?$/;
   const SUFFIX = /(:\d+(:\d+)?|#L\d+(-L?\d+)?)$/;
   const SHA = /^[0-9a-f]{7,40}$/;

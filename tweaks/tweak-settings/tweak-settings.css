@@ -1,0 +1,51 @@
+/* The Tweaks menu, styled with Amp's menu tokens (popover surface, shadow-popover, rounded-md, rounded-sm items
+   with the accent highlight) and opening like Amp's own dropdowns. */
+[data-amp-tweaks-settings-menu] {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 11rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-md, 0.375rem);
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  box-shadow: var(--shadow-popover, 0 0.75rem 2rem rgb(0 0 0 / 0.35));
+  font-size: var(--text-sm);
+  transform-origin: bottom left;
+  transition: opacity 150ms cubic-bezier(0.2, 0.9, 0.3, 1), scale 150ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  @starting-style { opacity: 0; scale: 0.96; }
+}
+[data-amp-tweaks-settings-menu][data-leaving] { opacity: 0; scale: 0.96; pointer-events: none; }
+
+[data-amp-tweaks-settings-menu] [data-heading] {
+  padding: 0.375rem 0.5rem 0.25rem;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+[data-amp-tweaks-settings-menu] [role="menuitemcheckbox"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 0;
+  border-radius: var(--radius-sm, 0.25rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+[data-amp-tweaks-settings-menu] [role="menuitemcheckbox"]:hover,
+[data-amp-tweaks-settings-menu] [role="menuitemcheckbox"]:focus-visible {
+  background: var(--color-accent);
+  color: var(--color-accent-foreground, var(--color-foreground));
+}
+[data-amp-tweaks-settings-menu] [data-check] { display: inline-grid; place-items: center; width: 1rem; height: 1rem; flex: none; }
+[data-amp-tweaks-settings-menu] [data-check] svg { width: 1rem; height: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-amp-tweaks-settings-menu] { transition: opacity 100ms linear; @starting-style { opacity: 0; scale: 1; } }
+  [data-amp-tweaks-settings-menu][data-leaving] { scale: 1; }
+}

@@ -53,12 +53,9 @@ def _assets(d: Path) -> list[Path]:
     )
 
 
-def tweak_files() -> list[tuple[str, Path]]:
-    """Enabled tweak files as (served name, path), sorted by name so load order is predictable.
-
-    A tweak is a folder (tweaks/<name>/*.js|css, or ~/.amp-tweaks/<name>/), served as "<name>/<file>".
-    Loose files in ~/.amp-tweaks also work (served by file name). A personal folder overrides the bundled
-    one with the same name; names in ~/.amp-tweaks/disabled (folder or file) are skipped."""
+def tweak_sources() -> tuple[dict[str, Path], dict[str, Path]]:
+    """Every tweak, on or off: (folders by name, loose files by file name). A personal folder overrides the
+    bundled one with the same name; loose .css/.js files only count in ~/.amp-tweaks."""
     folders: dict[str, Path] = {}
     loose: dict[str, Path] = {}
     for root in (BUNDLED_DIR, TWEAKS_DIR):
@@ -71,10 +68,44 @@ def tweak_files() -> list[tuple[str, Path]]:
                 folders[entry.name] = entry
             elif root == TWEAKS_DIR and entry.is_file() and entry.suffix in (".css", ".js"):
                 loose[entry.name] = entry
+    return folders, loose
+
+
+def tweak_files() -> list[tuple[str, Path]]:
+    """Enabled tweak files as (served name, path), sorted by name so load order is predictable.
+
+    A tweak is a folder (tweaks/<name>/*.js|css, or ~/.amp-tweaks/<name>/), served as "<name>/<file>".
+    Loose files in ~/.amp-tweaks also work (served by file name). Names in ~/.amp-tweaks/disabled are skipped."""
+    folders, loose = tweak_sources()
     off = _disabled()
     out = [(f"{name}/{p.relative_to(d).as_posix()}", p) for name, d in folders.items() if name not in off for p in _assets(d)]
     out += [(n, p) for n, p in loose.items() if n not in off and Path(n).stem not in off]
     return sorted(out)
+
+
+def tweak_list() -> list[dict]:
+    """Every tweak with whether it's on, for the in-app settings menu. Same rules as `amp-tweaks tweaks`."""
+    folders, loose = tweak_sources()
+    off = _disabled()
+    rows = [{"name": n, "on": n not in off, "personal": d.parent == TWEAKS_DIR} for n, d in folders.items()]
+    rows += [{"name": n, "on": n not in off and Path(n).stem not in off, "personal": True} for n in loose]
+    return sorted(rows, key=lambda r: r["name"])
+
+
+def set_tweak(flow: http.HTTPFlow) -> None:
+    """POST ?name=<tweak>&on=0|1 turns a tweak off or on by editing ~/.amp-tweaks/disabled (as the CLI does)."""
+    name, on = flow.request.query.get("name", ""), flow.request.query.get("on") == "1"
+    if name not in {r["name"] for r in tweak_list()}:
+        return respond(flow, 404, "no such tweak", "text/plain")
+    f = TWEAKS_DIR / "disabled"
+    lines = f.read_text().splitlines() if f.is_file() else []
+    keep = [l for l in lines if l.strip() not in (name, Path(name).stem)]
+    if not on:
+        keep.append(name)
+    TWEAKS_DIR.mkdir(parents=True, exist_ok=True)
+    f.write_text("".join(f"{l}\n" for l in keep))
+    log.warning("amp-tweaks: %s %s from the app", "enabled" if on else "disabled", name)
+    respond(flow, 200, json.dumps(tweak_list()), "application/json")
 
 
 def version(files: list[tuple[str, Path]]) -> str:
@@ -270,6 +301,10 @@ async def open_ref(flow: http.HTTPFlow) -> None:
 async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
     if name == "act/archive" and flow.request.method == "POST":
         return await archive(flow)
+    if name == "tweaks.json":
+        return respond(flow, 200, json.dumps(tweak_list()), "application/json")
+    if name == "act/tweak" and flow.request.method == "POST":
+        return set_tweak(flow)
     if name == "act/refs" and flow.request.method == "POST":
         return refs(flow)
     if name == "act/open" and flow.request.method == "POST":

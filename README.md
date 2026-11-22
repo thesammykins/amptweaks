@@ -31,10 +31,12 @@ Amp's Mac app is a native shell around ampcode.com, so tweaks go in at the netwo
 - `focus-sidebar` swaps Amp's thread list for just the threads that need you and the ones still working. Screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
 - `quick-replies` folds Amp's suggested replies into one chip ("3 replies"). Hover or click it for the full list. When the agent is waiting on you the chip shows a ? and the list starts with its question, which scrolls back to where it was asked.
 - `thread-outline` lists what you asked down the right of long threads, and opens the headings of the section you're reading. Beside images it tucks into a rail on the right edge; hover the rail to bring it back. It shows only when the window is wide enough.
-- `open-refs` makes file paths and commits in replies clickable. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
+- `clickable-paths` makes file paths and commits in replies clickable. A path opens in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), ⌥-click shows it in Finder, and a commit opens on GitHub. Only paths that exist on this Mac are marked, so orb threads are left alone.
 - `calm-reading` adds a little line spacing to replies and tints inline code instead of boxing it.
 
-Turn any of them off with `amp-tweaks tweaks disable <name>`.
+- `tweak-settings` adds a Tweaks button to Amp's left rail, above your profile, to turn each tweak on or off. A tweak with a script reloads Amp when you switch it; style-only ones switch in place.
+
+From the terminal: `amp-tweaks tweaks disable <name>` and `amp-tweaks tweaks enable <name>`. Both write `~/.amp-tweaks/disabled`, so the app and the CLI always agree.
 
 ## Your own tweaks
 
