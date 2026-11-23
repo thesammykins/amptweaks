@@ -3,7 +3,7 @@
     "id": "2026-11-23-puck",
     "date": "2026-11-23",
     "title": "Puck, front and centre",
-    "body": "Your Puck sits in the corner of every screen with its latest update on hover. New thread (⌘N) now starts with Puck: type what you're working on and it lands in Puck's chat, ready to send. Switch to Thread for Amp's own popup.",
+    "body": "Your Puck now sits on every thread's message box, on Amp's Call Puck button. Hover it for Puck's latest update and Ask about this thread, which opens Puck with the thread's link ready. New thread (⌘N) starts with Puck too.",
     "tweak": "puck"
   },
   {

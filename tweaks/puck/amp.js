@@ -36,7 +36,8 @@ const PENDING = "amp-tweaks:puck:pending-draft";
 export async function draftToPuck(text) {
   const { id } = await currentPuck();
   if (!puckBox(id)) openPuck();
-  for (const end = Date.now() + 1500; Date.now() < end; await sleep(100)) if (fill(puckBox(id), text)) return true;
+  // Amp opens Puck as a side panel next to the thread; give it a few seconds before falling back to a reload.
+  for (const end = Date.now() + 4000; Date.now() < end; await sleep(100)) if (fill(puckBox(id), text)) return true;
   try { sessionStorage.setItem(PENDING, text); } catch {}
   location.assign("/puck");
   return false;
@@ -67,11 +68,27 @@ function puckBox(id) {
 function fill(box, text) {
   if (!box) return false;
   const value = box.value ? `${box.value}\n\n${text}` : text;
-  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, value);
-  box.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+  setValue(box, value);
   box.focus();
   box.setSelectionRange(value.length, value.length);
   return true;
+}
+
+/** Sets an Amp message box's text so Amp's own state sees it (a plain .value assignment bypasses Svelte). */
+export function setValue(box, value) {
+  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, value);
+  box.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: value ? "insertText" : "deleteContent" }));
+}
+
+/** Presses one of Amp's buttons: they ignore a bare .click() and answer the full pointer sequence. */
+export function pressAmp(b) {
+  if (!b) return;
+  const r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + 4, clientY: r.top + 4, button: 0 };
+  b.dispatchEvent(new PointerEvent("pointerdown", { ...o, pointerType: "mouse", isPrimary: true }));
+  b.dispatchEvent(new MouseEvent("mousedown", o));
+  b.dispatchEvent(new PointerEvent("pointerup", { ...o, pointerType: "mouse", isPrimary: true }));
+  b.dispatchEvent(new MouseEvent("mouseup", o));
+  b.dispatchEvent(new MouseEvent("click", o));
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));

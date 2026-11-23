@@ -42,7 +42,12 @@ What's new in the menu shows each change as a card, like Amp's own news card, wi
 
 ### Puck (`puck`)
 
-Puck as the place work starts. Your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it) sits in the corner of every screen: it watches the pointer, shows Amp's unread dot, previews Puck's latest update on hover, and opens Puck on click (Amp's own shortcut is ⌃/). The new-thread popup gets a Puck · Thread switch: on Puck, what you type goes into Puck's chat as a draft, and you send it; on Thread, the popup is Amp's own. It uses Amp's existing Puck chat, so nothing is sent for you.
+Puck as the place work starts, with your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it).
+
+- On every thread's message box, Amp's Call Puck button shows your Puck, watching the pointer, with Amp's unread dot. Clicking it is Amp's own call. Hovering shows Puck's latest update and **Ask about this thread**, which opens Puck with this thread's link in its message box, so Puck has the context and you type the question.
+- The new-thread popup (⌘N) gets a Puck · Thread switch. On Puck, what you type goes into Puck's chat as a draft; on Thread, the popup is Amp's own.
+
+Nothing is sent for you, and it never starts a new Puck chat (Amp's New Chat archives the current one).
 
 ### Quick replies (`quick-replies`)
 

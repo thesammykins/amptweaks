@@ -1,7 +1,7 @@
 // Puck first in Amp's new-thread popup (⌘N): a Puck · Thread switch in its top bar. On Puck, the prompt asks what
 // you're working on, the thread pickers step aside (Puck decides where work runs), and ↵ or Create hands your
 // text to Puck as a draft in its chat. On Thread, the popup is Amp's own. The choice is remembered.
-import { draftToPuck } from "./amp.js";
+import { draftToPuck, pressAmp, setValue } from "./amp.js";
 import { puckFace, puckName, wake } from "./face.js";
 
 const MODE_KEY = "amp-tweaks:puck:start-mode";
@@ -88,23 +88,13 @@ function onCreate(e) {
   handOff(popup);
 }
 
-// Close Amp's popup with its own Close button (it only answers a full pointer sequence), then draft to Puck.
+// Close Amp's popup with its own Close button, then draft to Puck.
 async function handOff(popup) {
   const box = popup.querySelector("textarea[data-amp-prompt-input]");
   const text = box?.value.trim();
   if (!text) return;
-  Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(box, "");
-  box.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContent" }));
-  press(popup.querySelector("[data-palette-dismiss-button]"));
+  setValue(box, "");
+  pressAmp(popup.querySelector("[data-palette-dismiss-button]"));
   await draftToPuck(text);
 }
 
-function press(b) {
-  if (!b) return;
-  const r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + 4, clientY: r.top + 4, button: 0 };
-  b.dispatchEvent(new PointerEvent("pointerdown", { ...o, pointerType: "mouse", isPrimary: true }));
-  b.dispatchEvent(new MouseEvent("mousedown", o));
-  b.dispatchEvent(new PointerEvent("pointerup", { ...o, pointerType: "mouse", isPrimary: true }));
-  b.dispatchEvent(new MouseEvent("mouseup", o));
-  b.dispatchEvent(new MouseEvent("click", o));
-}
