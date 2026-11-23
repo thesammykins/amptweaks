@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-23-puck-presence",
+    "date": "2026-11-23",
+    "title": "Talk to Puck, and choose how present it is",
+    "body": "Your Puck on the message box now leads with Talk (Amp's call), opens Puck's own window, and copies the thread's link for Ask about this thread. Under Puck in this menu, choose Quiet, Present or Everywhere: Present has Puck speak up when it has something new; Everywhere adds a daily hello.",
+    "tweak": "puck"
+  },
+  {
     "id": "2026-11-23-puck",
     "date": "2026-11-23",
     "title": "Puck, front and centre",

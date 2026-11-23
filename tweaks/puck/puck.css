@@ -47,23 +47,25 @@
 [data-amp-tweaks-puck-card] [data-who] { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.25rem; color: var(--color-muted-foreground); }
 [data-amp-tweaks-puck-card] [data-name] { color: var(--color-foreground); font-weight: 600; }
 [data-amp-tweaks-puck-card] [data-msg] { color: var(--color-foreground); line-height: 1.45; }
-[data-amp-tweaks-puck-card] [data-ask] {
+[data-amp-tweaks-puck-card] [data-acts] { display: grid; gap: 2px; margin-top: 0.5rem; }
+[data-amp-tweaks-puck-card] [data-acts] button {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  margin-top: 0.5rem;
   padding: 0.375rem 0.5rem;
   border: 0;
   border-radius: var(--radius-sm, 0.25rem);
-  background: var(--color-accent);
+  background: transparent;
   color: var(--color-foreground);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-[data-amp-tweaks-puck-card] [data-ask][hidden] { display: none; }
-[data-amp-tweaks-puck-card] [data-ask]:hover { background: color-mix(in srgb, var(--color-accent) 70%, var(--color-foreground) 10%); }
-[data-amp-tweaks-puck-card] [data-keys] { display: flex; justify-content: space-between; margin-top: 0.375rem; color: var(--color-muted-foreground); }
-[data-amp-tweaks-puck-card] kbd { font: inherit; }
+[data-amp-tweaks-puck-card] [data-acts] button[hidden] { display: none; }
+[data-amp-tweaks-puck-card] [data-acts] [data-talk] { background: var(--color-accent); font-weight: 500; }
+[data-amp-tweaks-puck-card] [data-acts] button:hover { background: var(--color-accent); }
+[data-amp-tweaks-puck-card] kbd { font: inherit; color: var(--color-muted-foreground); font-weight: 400; }
 
 /* ---------- Puck · Thread in the new-thread popup ---------- */
 [data-amp-tweaks-puck-switch] {

@@ -29,10 +29,26 @@ export function openPuck() {
 }
 
 const PENDING = "amp-tweaks:puck:pending-draft";
+const native = name => window.webkit?.messageHandlers?.[name] ?? null;
 
-/** Puts text in Puck's message box as a draft (Amp's own state picks it up) and focuses it. Never sends.
- *  Puck opens as a page or as Amp's side panel; either way its box is found by its chat's id. If Amp doesn't
- *  open it, /puck is loaded and the text waits in session storage until the page is back. */
+/** Amp's own Puck window (macOS app). False where there's no native window to open. */
+export function openPuckWindow() {
+  const h = native("ampNativeOpenPuckWindow");
+  if (!h) return false;
+  h.postMessage({});
+  return true;
+}
+
+/** Puts text on the clipboard through Amp's own native clipboard (the Mac app), or the browser's. */
+export async function copyText(text) {
+  const h = native("ampNativeClipboard");
+  if (h) { h.postMessage({ text }); return true; }
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+/** Puts text in Puck's message box as a draft and never sends it. Puck opens in this window, as a page or as
+ *  Amp's side panel, found by its chat's id; if Amp doesn't open it, /puck is loaded and the text waits in session
+ *  storage until the page is back. */
 export async function draftToPuck(text) {
   const { id } = await currentPuck();
   if (!puckBox(id)) openPuck();

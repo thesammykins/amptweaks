@@ -1,1 +1,12 @@
-{"title": "Puck", "summary": "Your Puck on every thread's message box, and new work starts as a conversation with Puck.", "needs": "amp"}
+{
+  "title": "Puck",
+  "summary": "Your Puck on every thread's message box, in its own window, and new work starts with Puck.",
+  "needs": "amp",
+  "options": {
+    "presence": {
+      "label": "Presence",
+      "choices": [["quiet", "Quiet"], ["present", "Present"], ["everywhere", "Everywhere"]],
+      "default": "present"
+    }
+  }
+}

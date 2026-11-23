@@ -45,6 +45,40 @@
     return res.json();
   }
 
+  async function loadSettings() {
+    const res = await fetch("/__amp-tweaks/settings.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // A tweak with options in its tweak.json gets a small switch under its name; the change is saved through the
+  // proxy (~/.amp-tweaks/settings.json) and announced on window as "amp-tweaks:settings" so the tweak applies it now.
+  function optionRows(t, values) {
+    return Object.entries(t.options ?? {}).map(([key, opt]) => {
+      const row = document.createElement("div");
+      row.dataset.option = key;
+      row.setAttribute("role", "radiogroup");
+      row.setAttribute("aria-label", `${label(t)} ${opt.label ?? key}`);
+      for (const [value, text] of opt.choices ?? []) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", String(values?.[key] === value));
+        b.textContent = text;
+        b.addEventListener("click", async () => {
+          try {
+            const res = await fetch(`/__amp-tweaks/act/setting?tweak=${encodeURIComponent(t.name)}&key=${encodeURIComponent(key)}&value=${encodeURIComponent(value)}`, { method: "POST" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+            for (const x of row.children) x.setAttribute("aria-checked", String(x === b));
+            dispatchEvent(new CustomEvent("amp-tweaks:settings", { detail: await res.json() }));
+          } catch (e) { console.warn(TAG, "couldn't save", t.name, key, e.message); }
+        });
+        row.append(b);
+      }
+      return row;
+    });
+  }
+
   async function setTweak(name, on) {
     const res = await fetch(`/__amp-tweaks/act/tweak?name=${encodeURIComponent(name)}&on=${on ? 1 : 0}`, { method: "POST" });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
@@ -81,9 +115,9 @@
 
   // ---------- the menu ----------
   async function openMenu(button) {
-    let tweaks;
+    let tweaks, settings = {};
     try {
-      tweaks = (await listTweaks()).filter(t => t.name !== SELF);
+      [tweaks, settings] = await Promise.all([listTweaks().then(l => l.filter(t => t.name !== SELF)), loadSettings().catch(() => ({}))]);
     } catch (e) {
       console.warn(TAG, "couldn't list tweaks", e.message);
       return;
@@ -118,6 +152,7 @@
         setChecked(it, t.on);
         it.addEventListener("click", () => toggle(it));
         menu.append(it);
+        if (t.on) menu.append(...optionRows(t, settings[t.name]));
       }
     }
     const r = button.getBoundingClientRect();

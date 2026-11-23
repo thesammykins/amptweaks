@@ -34,6 +34,12 @@
 [data-amp-tweaks-settings-menu] [data-heading] + button { margin-top: 0; }
 [data-amp-tweaks-settings-menu] [data-heading]:not(:first-child) { margin-top: 0.25rem; }
 
+/* A tweak's options: a small segmented switch under its name, indented to its label. */
+[data-amp-tweaks-settings-menu] [data-option] { display: flex; gap: 2px; margin: 0 0.5rem 0.25rem 2rem; padding: 2px; border-radius: 9999px; background: var(--color-muted); }
+[data-amp-tweaks-settings-menu] [data-option] button { flex: 1; justify-content: center; padding: 0.1875rem 0.5rem; border-radius: 9999px; font-size: var(--text-xs); color: var(--color-muted-foreground); }
+[data-amp-tweaks-settings-menu] [data-option] button[aria-checked="true"] { background: var(--color-background); color: var(--color-foreground); box-shadow: 0 0 0 1px var(--color-border); }
+[data-amp-tweaks-settings-menu] [data-option] button:hover:not([aria-checked="true"]) { background: transparent; color: var(--color-foreground); }
+
 /* Unread changes: a dot on the rail button and on "What's new", in the amber of Amp's news eyebrow. */
 [data-amp-tweaks-settings] > button > span { position: relative; }
 [data-amp-tweaks-settings] [data-dot] {

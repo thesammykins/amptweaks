@@ -92,7 +92,10 @@ def _meta(d: Path) -> dict:
     except ValueError as e:
         log.warning("amp-tweaks: %s: %s", f, e)
         return {}
-    return {k: m[k] for k in ("title", "summary", "needs", "why") if isinstance(m.get(k), str)}
+    out = {k: m[k] for k in ("title", "summary", "needs", "why") if isinstance(m.get(k), str)}
+    if isinstance(m.get("options"), dict):
+        out["options"] = m["options"]
+    return out
 
 
 def tweak_list() -> list[dict]:
@@ -105,6 +108,48 @@ def tweak_list() -> list[dict]:
 
 
 CHANGES = Path(__file__).with_name("changes.json")
+SETTINGS = TWEAKS_DIR / "settings.json"
+
+
+def _settings() -> dict:
+    """~/.amp-tweaks/settings.json: {tweak: {option: value}}. Anything unreadable counts as no settings."""
+    try:
+        s = json.loads(SETTINGS.read_text()) if SETTINGS.is_file() else {}
+    except ValueError as e:
+        log.warning("amp-tweaks: %s: %s", SETTINGS, e)
+        return {}
+    return s if isinstance(s, dict) else {}
+
+
+def _choices(opt: dict) -> list:
+    """An option's allowed values, from its [[value, label], …] choices in tweak.json."""
+    return [c[0] for c in opt.get("choices", []) if isinstance(c, list) and c]
+
+
+def settings_for_page() -> dict:
+    """Each tweak's options with the chosen value filled in from settings.json, or the option's default."""
+    chosen = _settings()
+    out = {}
+    for t in tweak_list():
+        for key, opt in (t.get("options") or {}).items():
+            value = chosen.get(t["name"], {}).get(key)
+            out.setdefault(t["name"], {})[key] = value if value in _choices(opt) else opt.get("default")
+    return out
+
+
+def set_setting(flow: http.HTTPFlow) -> None:
+    """POST ?tweak=&key=&value= sets one option, checked against the choices in that tweak's tweak.json."""
+    q = flow.request.query
+    tweak, key, value = q.get("tweak", ""), q.get("key", ""), q.get("value", "")
+    opt = next((t.get("options", {}).get(key) for t in tweak_list() if t["name"] == tweak), None)
+    if not opt or value not in _choices(opt):
+        return respond(flow, 400, "not an option of that tweak", "text/plain")
+    s = _settings()
+    s.setdefault(tweak, {})[key] = value
+    TWEAKS_DIR.mkdir(parents=True, exist_ok=True)
+    SETTINGS.write_text(json.dumps(s, indent=2) + "\n")
+    log.warning("amp-tweaks: %s %s = %s from the app", tweak, key, value)
+    respond(flow, 200, json.dumps(settings_for_page()), "application/json")
 
 
 def set_tweak(flow: http.HTTPFlow) -> None:
@@ -395,6 +440,10 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
         return await archive(flow)
     if name == "tweaks.json":
         return respond(flow, 200, json.dumps(tweak_list()), "application/json")
+    if name == "settings.json":
+        return respond(flow, 200, json.dumps(settings_for_page()), "application/json")
+    if name == "act/setting" and flow.request.method == "POST":
+        return set_setting(flow)
     if name == "changes.json":
         return respond(flow, 200, CHANGES.read_bytes() if CHANGES.is_file() else b"[]", "application/json")
     if name == "act/tweak" and flow.request.method == "POST":

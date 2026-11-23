@@ -1,8 +1,9 @@
-// Puck first in Amp's new-thread popup (⌘N): a Puck · Thread switch in its top bar. On Puck, the prompt asks what
+// Puck first in Amp's new-thread popup (⌘N), from Present up: a Puck · Thread switch in its top bar. On Puck, the prompt asks what
 // you're working on, the thread pickers step aside (Puck decides where work runs), and ↵ or Create hands your
 // text to Puck as a draft in its chat. On Thread, the popup is Amp's own. The choice is remembered.
 import { draftToPuck, pressAmp, setValue } from "./amp.js";
 import { puckFace, puckName, wake } from "./face.js";
+import { atLeast } from "./settings.js";
 
 const MODE_KEY = "amp-tweaks:puck:start-mode";
 const PALETTE = "[data-command-palette-content]";
@@ -28,7 +29,7 @@ const newThreadPopup = () => [...document.querySelectorAll(PALETTE)].find(p => p
 function attach() {
   queued = false;
   const popup = newThreadPopup();
-  if (!popup || popup.querySelector("[data-amp-tweaks-puck-switch]")) return;
+  if (!popup || popup.querySelector("[data-amp-tweaks-puck-switch]") || !atLeast("present")) return; // Quiet: Amp's own popup
   const bar = popup.querySelector("[data-dialog-drag-region]");
   const face = puckFace(14);
   if (!bar || !face) return;

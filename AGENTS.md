@@ -10,7 +10,7 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 - Style with Amp's tokens (`--color-*`, `--text-*`). To beat Amp's own `!important` rules, use `@layer amp-tweaks { … !important }`.
 - Act through Amp, not around it. Clicks, navigation and menus go through Amp's own (hidden) rows. Space threads 500 if you follow their href, and Amp's buttons ignore synthetic `.click()`.
 - Fail open. If a tweak can't find what it needs, leave Amp's UI visible.
-- Give a tweak a `tweak.json`: `title`, `summary`, and `needs` (`"amp"` if it only uses Amp's web app and its API, `"this-mac"` if it needs the proxy's actions or the `amp` CLI, with `why`). The Tweaks menu groups and labels tweaks by it.
+- Give a tweak a `tweak.json`: `title`, `summary`, optional `options` (`{key: {label, choices: [[value, label]…], default}}`, shown in the Tweaks menu and saved to `~/.amp-tweaks/settings.json`; read them from `/__amp-tweaks/settings.json` and listen for the `amp-tweaks:settings` event), and `needs` (`"amp"` if it only uses Amp's web app and its API, `"this-mac"` if it needs the proxy's actions or the `amp` CLI, with `why`). The Tweaks menu groups and labels tweaks by it.
 - Add a line to `changes.json` (newest first) when a tweak is added or changes in a way people would notice. It shows in the Tweaks menu's What's new.
 - After restarting the proxy, quit and reopen Amp. While the proxy is down Amp opens a direct connection to ampcode.com, and later reloads can go over it without tweaks.
 
@@ -53,6 +53,7 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 - `POST /__amp-tweaks/act/archive?id=T-…[,T-…][&undo=1]`: archive or unarchive, in order per thread.
 - `GET /__amp-tweaks/tweaks.json`: every tweak, whether it's on, and its `tweak.json`.
 - `GET /__amp-tweaks/changes.json`: the changelog for What's new.
+- `GET /__amp-tweaks/settings.json`: each tweak's options with the chosen (or default) value. `POST /__amp-tweaks/act/setting?tweak=&key=&value=` sets one, checked against its `tweak.json`.
 - `POST /__amp-tweaks/act/tweak?name=X&on=0|1`: turns a tweak off or on (edits `~/.amp-tweaks/disabled`, like the CLI).
 - `POST /__amp-tweaks/act/refs` with `{root, runner: {id, hostname}, paths}` → `{local, paths}`: whether the thread ran on this Mac (its host names, or a runner id from `amp runner list`), and which paths exist under your home folder, resolved against the thread's root. No paths unless it ran here.
 - `GET /__amp-tweaks/runners.json`: this Mac's runners and the folders each serves.
