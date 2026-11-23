@@ -2,7 +2,7 @@
 // Serve the repo root (python3 -m http.server) and open /tweaks/_thread-demo/.
 //   ?tweaks=quick-replies,thread-outline  only those (default: all of them)   ?tweaks=off  Amp as it is
 // _thread-demo/shoot.mjs uses it for the README screenshots and clips, so nothing personal ends up in them.
-const ALL = ["calm-reading", "clickable-paths", "polish", "quick-replies", "thread-outline", "tweak-settings"];
+const ALL = ["calm-reading", "clickable-paths", "polish", "quick-replies", "runner-folders", "thread-outline", "tweak-settings"];
 const THREAD = "T-0000b111-0000-4000-8000-000000000001";
 const params = new URLSearchParams(location.search);
 const wanted = params.get("tweaks") === "off" ? [] : (params.get("tweaks")?.split(",") ?? ALL);
@@ -21,10 +21,14 @@ window.fetch = async (input, init = {}) => {
     env: { initial: { runnerID: "demo-mac", hostname: "demo-mac.local", trees: [{ uri: "file:///Users/demo/billing", repository: { url: "https://github.com/acme/billing.git" } }] } },
     meta: { statusMessage: { text: ASK, waitingOnInput: true } },
   });
-  if (p === "/__amp-tweaks/act/refs") {
+  if (p === "/__amp-tweaks/act/refs") { // the demo thread ran on "this Mac"
     const { root, paths } = JSON.parse(init.body);
-    return json(Object.fromEntries(paths.filter(x => x.includes("/") || x.includes(".")).map(x => [x, { path: `${root}/${x}`, dir: x.endsWith("/") }])));
+    const at = x => (x.startsWith("/") ? x : `${root}/${x}`);
+    return json({ local: true, paths: Object.fromEntries(paths.filter(x => x.includes("/") || x.includes(".")).map(x => [x, { path: at(x), dir: x.endsWith("/") }])) });
   }
+  if (p === "/__amp-tweaks/runners.json") return json({ "demo-mac-amp-app": ["/Users/demo/repos"] });
+  if (p === "/__amp-tweaks/act/serve") { window.__served = url.search; return new Response(null, { status: 204 }); }
+  if (p === "/__amp-tweaks/act/open") { window.__opened = url.search; return new Response(null, { status: 204 }); }
   if (p === "/__amp-tweaks/tweaks.json") return json(await Promise.all(Object.entries(tweakState).sort().map(async ([name, on]) => ({ name, on, personal: false, ...(await meta(name)) }))));
   if (p === "/__amp-tweaks/changes.json") return realFetch("/changes.json");
   if (p === "/__amp-tweaks/act/tweak") { tweakState[url.searchParams.get("name")] = url.searchParams.get("on") === "1"; return json([]); }
@@ -39,7 +43,7 @@ const ENTRIES = [
   ["user", "Move billing to the v2 API. Start with invoices and keep the old client as the default."],
   ["assistant", `<h3>Plan</h3><p>Invoices go first because everything else reads from them. The v2 client lives beside the old one in <code>src/billing/</code> until the switch.</p><ul><li>New client in <code>src/billing/invoice.ts</code></li><li>Webhook handlers for <code>invoice.finalized</code> and <code>invoice.voided</code></li><li>Backfill script in <code>scripts/backfill-invoices.sh</code></li></ul><h3>Open questions</h3><p>Do we keep sending receipts from the old mailer during the switch, or move them now?</p>`],
   ["user", "Keep the old mailer for now. Go ahead with invoices."],
-  ["assistant", `<p class="run">Moved invoices to the v2 client · 6 minutes</p><h3>What changed</h3><p>Invoices now go through <code>src/billing/invoice.ts</code>, pushed as <code>4f1c9a2</code> on <code>billing-v2</code>. The old client is untouched and still the default.</p><ul><li>9,214 invoices backfilled, none skipped</li><li>Retries back off on 429s from the payments provider</li><li>Rollout steps are in <code>docs/billing/MIGRATION.md</code></li></ul><h3>Screens</h3>${gallery([["Checkout, before", "#5fa8d3", "v1"], ["Checkout, after", "#8b7cf6", "v2"], ["Invoice email", "#59c08a", "receipt"]])}<p>Both checkouts render the same totals on the 40 sample carts.</p>`],
+  ["assistant", `<p class="run">Moved invoices to the v2 client · 6 minutes</p><h3>What changed</h3><p>Invoices now go through <code>src/billing/invoice.ts</code>, pushed as <code>4f1c9a2</code> on <code>billing-v2</code>. The old client is untouched and still the default.</p><ul><li>9,214 invoices backfilled, none skipped</li><li>Retries back off on 429s from the payments provider</li><li>Rollout steps are in <code>docs/billing/MIGRATION.md</code></li><li>The backfill itself is <a href="file:///Users/demo/billing/scripts/backfill.ts"><code>scripts/backfill.ts</code></a>, reviewed in <a href="https://ampcode.com/@acme/billing/commit/9c2e1d4"><code>9c2e1d4</code></a></li></ul><h3>Screens</h3>${gallery([["Checkout, before", "#5fa8d3", "v1"], ["Checkout, after", "#8b7cf6", "v2"], ["Invoice email", "#59c08a", "receipt"]])}<p>Both checkouts render the same totals on the 40 sample carts.</p>`],
   ["user", "Can we ship it behind a flag so the API team can test it first?"],
   ["assistant", `<p class="run">Added the billing_v2 flag and wired it through checkout · 4 minutes</p><h3>What's behind the flag</h3><ul><li>The v2 invoice client and its webhooks</li><li>The new invoice email from <code>emails/invoice.tsx</code></li><li>Nothing else: refunds and payouts stay on v1</li></ul><h3>Turning it on</h3><p>Set <code>BILLING_V2=1</code> for a workspace, or flip it for everyone from the admin page. Turning it off falls back to v1 on the next request.</p>${gallery([["Admin flag page", "#d6a038", "flag"], ["API team workspace", "#e0739a", "workspace"], ["Error rate, last hour", "#59c08a", "0.02%"]])}<p>Should I turn the flag on for the API team's workspace now?</p>`],
 ];
@@ -110,6 +114,9 @@ history.replaceState(null, "", `/threads/${THREAD}${location.search}`);
 const scroller = document.querySelector("[data-thread-transcript-scroll]");
 await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
 scroller.scrollTop = params.has("top") ? 0 : scroller.scrollHeight;
+
+// ?notice: Amp's message when a thread's folder isn't served by its runner (for runner-folders).
+if (params.has("notice")) document.querySelector("[data-transcript-entry-list]").insertAdjacentHTML("beforeend", `<div class="notice"><div class="notice-title">Executor Setup Failed</div><div>Restart attempt 3 failed: Runner does not serve directory /Users/demo/Development (demo-mac-amp-app)</div></div>`);
 
 const STYLE_ONLY = new Set(["calm-reading"]);
 const SCRIPT_ONLY = new Set(["polish"]);

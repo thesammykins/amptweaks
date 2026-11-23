@@ -54,6 +54,8 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 - `GET /__amp-tweaks/tweaks.json`: every tweak, whether it's on, and its `tweak.json`.
 - `GET /__amp-tweaks/changes.json`: the changelog for What's new.
 - `POST /__amp-tweaks/act/tweak?name=X&on=0|1`: turns a tweak off or on (edits `~/.amp-tweaks/disabled`, like the CLI).
-- `POST /__amp-tweaks/act/refs` with `{root, runner: {id, hostname}, paths}`: which paths exist under your home folder, resolved against the thread's root. Empty unless the runner is this Mac (its host names, or a runner id from `amp runner list`).
+- `POST /__amp-tweaks/act/refs` with `{root, runner: {id, hostname}, paths}` → `{local, paths}`: whether the thread ran on this Mac (its host names, or a runner id from `amp runner list`), and which paths exist under your home folder, resolved against the thread's root. No paths unless it ran here.
+- `GET /__amp-tweaks/runners.json`: this Mac's runners and the folders each serves.
+- `POST /__amp-tweaks/act/serve?runner=…&dir=…`: `amp runner dirs add` for one of this Mac's runners and a folder under your home.
 - `POST /__amp-tweaks/act/open?path=…[&reveal=1]` or `?url=<GitHub commit>`: opens a file in your editor, shows it in Finder, or opens a commit. Files never open with their default app, so nothing can be launched this way.
 - `POST /__amp-tweaks/report?name=X`: writes the body to `~/Library/Logs/amp-tweaks-reports/X.json`.

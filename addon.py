@@ -281,8 +281,11 @@ def _short(host: str | None) -> str:
     return (host or "").split(".")[0].strip().lower()
 
 
+_runner_dirs: dict[str, list[str]] = {}
+
+
 async def local_identity() -> tuple[set[str], set[str]]:
-    """(this Mac's short host names, runner ids running here)."""
+    """(this Mac's short host names, runner ids running here). Also refreshes the folders each runner serves."""
     global _local_cache
     if time.monotonic() - _local_cache[0] < LOCAL_TTL:
         return _local_cache[1], _local_cache[2]
@@ -299,7 +302,10 @@ async def local_identity() -> tuple[set[str], set[str]]:
     try:
         proc = await asyncio.create_subprocess_exec(AMP_CLI, "runner", "list", "--json", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         out, err = await asyncio.wait_for(proc.communicate(), 15)
-        runners = {r["runnerId"] for r in json.loads(out).get("runners", []) if r.get("runnerId")}
+        listed = [r for r in json.loads(out).get("runners", []) if r.get("runnerId")]
+        runners = {r["runnerId"] for r in listed}
+        _runner_dirs.clear()
+        _runner_dirs.update({r["runnerId"]: [d["path"] for d in r.get("directories", []) if d.get("path")] for r in listed})
     except (OSError, ValueError, asyncio.TimeoutError) as e:
         log.warning("amp-tweaks: amp runner list failed, matching on host name only: %s", e)
     names.discard("")
@@ -314,21 +320,47 @@ async def ran_here(runner: dict) -> bool:
 
 
 async def refs(flow: http.HTTPFlow) -> None:
-    """POST {root, runner: {id, hostname}, paths: [...]} -> {path: {path, dir}} for the paths that exist here.
-    Empty unless the thread ran on this Mac, so an orb's or another machine's paths never open local files."""
+    """POST {root, runner: {id, hostname}, paths: [...]} -> {local, paths: {path: {path, dir}}}: whether the thread
+    ran on this Mac, and which of its paths exist here. No paths unless it ran here, so an orb's or another
+    machine's paths never open local files."""
     try:
         body = json.loads(flow.request.raw_content or b"{}")
         root, runner, paths = body.get("root"), body.get("runner") or {}, body.get("paths", [])[:MAX_REFS]
     except (ValueError, AttributeError):
         return respond(flow, 400, "bad body", "text/plain")
-    if not isinstance(runner, dict) or not await ran_here(runner):
-        return respond(flow, 200, "{}", "application/json")
+    local = isinstance(runner, dict) and await ran_here(runner)
     found = {}
-    for raw in paths:
+    for raw in paths if local else []:
         p = _local(str(raw), root if isinstance(root, str) else None)
         if p:
             found[raw] = {"path": str(p), "dir": p.is_dir()}
-    respond(flow, 200, json.dumps(found), "application/json")
+    respond(flow, 200, json.dumps({"local": local, "paths": found}), "application/json")
+
+
+async def runners_json(flow: http.HTTPFlow) -> None:
+    """GET -> {runner id: [folders it serves]} for the runners on this Mac."""
+    await local_identity()
+    respond(flow, 200, json.dumps(_runner_dirs), "application/json")
+
+
+async def serve_dir(flow: http.HTTPFlow) -> None:
+    """POST ?runner=<id>&dir=<path>: `amp runner dirs add` for one of this Mac's runners and a folder under $HOME,
+    for a thread Amp can't resume because its runner doesn't serve that folder."""
+    global _local_cache
+    runner, d = flow.request.query.get("runner", ""), _local(flow.request.query.get("dir", ""), None)
+    _, runners = await local_identity()
+    if runner not in runners:
+        return respond(flow, 404, "not a runner on this Mac", "text/plain")
+    if not d or not d.is_dir():
+        return respond(flow, 404, "not a folder under your home folder", "text/plain")
+    proc = await asyncio.create_subprocess_exec(AMP_CLI, "runner", "dirs", "add", "--runner-id", runner, str(d), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    out, err = await proc.communicate()
+    _local_cache = (0.0, set(), set())  # pick up the new folder on the next look
+    if proc.returncode != 0:
+        log.warning("amp-tweaks: amp runner dirs add %s failed: %s", d, (err or out).decode()[:200])
+        return respond(flow, 500, (err or out).decode()[:200] or "amp runner dirs add failed", "text/plain")
+    log.warning("amp-tweaks: runner %s now serves %s", runner, d)
+    respond(flow, 204, b"", "text/plain")
 
 
 COMMIT_URL = re.compile(r"^https://github\.com/[\w.-]+/[\w.-]+/commit/[0-9a-f]{7,40}$")
@@ -369,6 +401,10 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
         return set_tweak(flow)
     if name == "act/refs" and flow.request.method == "POST":
         return await refs(flow)
+    if name == "runners.json":
+        return await runners_json(flow)
+    if name == "act/serve" and flow.request.method == "POST":
+        return await serve_dir(flow)
     if name == "act/open" and flow.request.method == "POST":
         return await open_ref(flow)
     if name == "report" and flow.request.method == "POST":

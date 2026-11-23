@@ -56,7 +56,7 @@ What you asked, down the right of long threads, with the headings of the section
 
 ### Clickable paths (`clickable-paths`)
 
-In threads that ran on a runner on this Mac, file paths in replies open in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), and ⌥-click shows them in Finder. Orb threads and threads from other machines are left to Amp, which opens their files in its own tabs. Commits open on GitHub.
+In threads that ran on a runner on this Mac, file paths Amp left as plain text open in Zed, VS Code or Cursor (whichever you have, or set `AMP_TWEAKS_EDITOR`), and commits open on GitHub. Amp's own file and commit links keep Amp's click; ⌥-click shows the file in Finder or opens the commit on GitHub. Orb threads and threads from other machines are left to Amp, which opens their files in its own tabs.
 
 <img src="tweaks/clickable-paths/images/hover.png" width="420" alt="A file path in a reply, underlined under the pointer">
 
@@ -70,7 +70,13 @@ A little more space between lines, and inline code tinted instead of boxed.
 
 ### Polish (`polish`)
 
-Small fixes across Amp. For now: links to other threads in a reply, which Amp cuts short, show their full title on hover.
+Small fixes across Amp. For now: links to other threads and artifacts in a reply, which Amp cuts short, show their full title on hover.
+
+### Runner folders (`runner-folders`)
+
+When Amp can't resume a thread because this Mac's runner doesn't serve its folder ("Runner does not serve directory …"), its message gets a button that serves that folder (`amp runner dirs add`). Only for runners on this Mac and folders under your home; `amp runner dirs remove` undoes it.
+
+<img src="tweaks/runner-folders/images/serve.png" width="520" alt="Amp's runner error with a button to serve the folder">
 
 ### Focus sidebar (`focus-sidebar`)
 

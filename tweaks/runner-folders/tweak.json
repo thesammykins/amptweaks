@@ -1,0 +1,1 @@
+{ "title": "Runner folders", "summary": "When a thread can't resume because this Mac's runner doesn't serve its folder, adds a button to serve it.", "needs": "this-mac", "why": "Serving a folder runs amp runner dirs add on this Mac." }

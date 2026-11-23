@@ -27,7 +27,7 @@
 /* Beside an image it tucks away past the right edge (clipped, so it never spills into a split view) and a
    rail along that edge takes its place. Hovering the rail slides it back out over the image. */
 [data-amp-tweaks-outline][data-covered]:not([data-peek]) {
-  translate: calc(100% + 1rem) 0;
+  translate: calc(100% + 1rem) 0; /* fully past the edge; clipped so it never shows over the scrollbar */
   clip-path: inset(0 100% 0 0 round 0.75rem);
   pointer-events: none;
   transition-delay: 0s, 0s, 0s, 0s;
@@ -37,7 +37,7 @@
 [data-amp-tweaks-outline-rail] {
   position: absolute;
   z-index: 11;
-  right: 0;
+  right: 0.875rem; /* clear of the transcript's scrollbar at the pane's edge */
   width: 0.875rem;
   cursor: default;
   pointer-events: none;

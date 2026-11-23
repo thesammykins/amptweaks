@@ -1,13 +1,14 @@
-// File paths and commit hashes in Amp's replies become links. A path opens in your editor (⌥-click shows it in
-// Finder); a commit opens on GitHub. Paths are only marked in threads that ran on a runner on this Mac, and only
-// when they exist here: an orb's files, or another machine's, stay with Amp, which opens them in its own tab.
-// The proxy decides whether the runner is this Mac (/__amp-tweaks/act/refs) and does the opening (act/open).
+// In threads that ran on a runner on this Mac, file paths and commits in Amp's replies open locally:
+// - a path Amp left as plain code opens in your editor (⌥-click shows it in Finder); a commit opens on GitHub
+// - Amp's own file and commit links keep Amp's click; ⌥-click shows the file in Finder or opens the commit on GitHub
+// Orb threads and other machines' threads are left alone: Amp opens their files in its own tabs.
+// The proxy decides whether the thread ran here and which paths exist (/__amp-tweaks/act/refs) and opens them (act/open).
 (() => {
   const TAG = "[clickable-paths]";
   const PATH = /^(~\/|\/|\.{1,2}\/)?[\w@.+-]+(\/[\w@.+-]+)*\/?$/;
   const SUFFIX = /(:\d+(:\d+)?|#L\d+(-L?\d+)?)$/;
   const SHA = /^[0-9a-f]{7,40}$/;
-  const roots = new Map(); // thread id -> Promise<{ root, repo }>
+  const roots = new Map(); // thread id -> Promise<{ root, repo, runner }>
   let queued = false;
 
   const threadOf = el => el.closest("[data-thread-transcript-scroll]")?.dataset.threadId ?? null;
@@ -41,70 +42,99 @@
     return { kind: "path", value: t };
   };
 
-  // Each inline code is checked once per text, so a path still streaming in is checked again when it's complete.
+  const ampLink = a => a.getAttribute("href")?.startsWith("file://") ? "file" : /\/commit\/[0-9a-f]{7,40}$/.test(a.getAttribute("href") ?? "") ? "commit" : null;
+
+  // Each element is checked once per text (or link), so a path still streaming in is checked again when complete.
   function scan() {
     queued = false;
     const byThread = new Map();
+    const add = (el, ref) => {
+      const id = threadOf(el);
+      if (!id) return;
+      if (!byThread.has(id)) byThread.set(id, []);
+      byThread.get(id).push({ el, ...ref });
+    };
     for (const code of document.querySelectorAll("[data-transcript-markdown] code")) {
       if (code.dataset.ampTweaksRefSeen === code.textContent) continue;
       code.dataset.ampTweaksRefSeen = code.textContent;
       if (code.closest("pre, a, button")) continue;
       const c = candidate(code.textContent);
-      const id = c && threadOf(code);
-      if (!id) continue;
-      if (!byThread.has(id)) byThread.set(id, []);
-      byThread.get(id).push({ code, ...c });
+      if (c) add(code, c);
+    }
+    for (const a of document.querySelectorAll('[data-transcript-markdown] a[href^="file://"], [data-transcript-markdown] a[href*="/commit/"]')) {
+      const href = a.getAttribute("href");
+      if (a.dataset.ampTweaksRefSeen === href) continue;
+      a.dataset.ampTweaksRefSeen = href;
+      const kind = ampLink(a);
+      if (kind === "file") add(a, { kind: "amp-file", value: decodeURIComponent(new URL(href).pathname) });
+      if (kind === "commit") add(a, { kind: "amp-commit", value: href.split("/").pop() });
     }
     for (const [id, refs] of byThread) mark(id, refs);
   }
 
   async function mark(id, refs) {
     const { root, repo, runner } = await threadInfo(id);
-    for (const r of refs) if (r.kind === "commit" && repo) {
-      r.code.dataset.ampTweaksRef = "commit";
-      r.code.dataset.ampTweaksUrl = `https://github.com/${repo}/commit/${r.value}`;
-      r.code.title = "Open commit on GitHub";
-    }
-    const paths = [...new Set(refs.filter(r => r.kind === "path").map(r => r.value))];
-    if (!paths.length || !runner) return;
+    if (!runner) return; // an orb thread: nothing here is on this Mac
+    const paths = [...new Set(refs.filter(r => r.kind === "path" || r.kind === "amp-file").map(r => r.value))];
+    let verdict;
     try {
       const res = await fetch("/__amp-tweaks/act/refs", { method: "POST", body: JSON.stringify({ root, runner, paths }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const found = await res.json();
-      for (const r of refs) {
-        const hit = r.kind === "path" && found[r.value];
-        if (!hit) continue;
-        r.code.dataset.ampTweaksRef = hit.dir ? "dir" : "file";
-        r.code.dataset.ampTweaksPath = hit.path;
-        r.code.title = hit.dir ? "Show in Finder" : "Open in editor · ⌥-click to show in Finder";
-      }
+      verdict = await res.json();
     } catch (e) {
       console.warn(TAG, "couldn't check paths", e.message);
+      return;
+    }
+    if (!verdict.local) return; // ran on another machine
+    const commitUrl = sha => repo && `https://github.com/${repo}/commit/${sha}`;
+    for (const r of refs) {
+      const hit = verdict.paths[r.value];
+      if (r.kind === "path" && hit) {
+        r.el.dataset.ampTweaksRef = hit.dir ? "dir" : "file";
+        r.el.dataset.ampTweaksPath = hit.path;
+        r.el.title = hit.dir ? "Show in Finder" : "Open in editor · ⌥-click to show in Finder";
+      } else if (r.kind === "commit" && repo) {
+        r.el.dataset.ampTweaksRef = "commit";
+        r.el.dataset.ampTweaksUrl = commitUrl(r.value);
+        r.el.title = "Open commit on GitHub";
+      } else if (r.kind === "amp-file" && hit) {
+        r.el.dataset.ampTweaksAlt = "file";
+        r.el.dataset.ampTweaksPath = hit.path;
+        r.el.title = "⌥-click to show in Finder";
+      } else if (r.kind === "amp-commit" && repo) {
+        r.el.dataset.ampTweaksAlt = "commit";
+        r.el.dataset.ampTweaksUrl = commitUrl(r.value);
+        r.el.title = "⌥-click to open on GitHub";
+      }
     }
   }
 
-  async function open(code, reveal) {
-    const q = code.dataset.ampTweaksUrl
-      ? `url=${encodeURIComponent(code.dataset.ampTweaksUrl)}`
-      : `path=${encodeURIComponent(code.dataset.ampTweaksPath)}${reveal ? "&reveal=1" : ""}`;
-    code.dataset.ampTweaksOpening = "";
+  async function open(el, reveal) {
+    const q = el.dataset.ampTweaksUrl
+      ? `url=${encodeURIComponent(el.dataset.ampTweaksUrl)}`
+      : `path=${encodeURIComponent(el.dataset.ampTweaksPath)}${reveal ? "&reveal=1" : ""}`;
+    el.dataset.ampTweaksOpening = "";
     try {
       const res = await fetch(`/__amp-tweaks/act/open?${q}`, { method: "POST" });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     } catch (e) {
       console.warn(TAG, "open failed", e.message);
     } finally {
-      setTimeout(() => delete code.dataset.ampTweaksOpening, 300);
+      setTimeout(() => delete el.dataset.ampTweaksOpening, 300);
     }
   }
 
-  // Capture phase, so Amp's own handlers on the message don't also act on the click.
+  // Capture phase, so Amp's own handlers on the message don't also act on the click. Amp's own links only
+  // change on ⌥-click; a plain click is still Amp's.
   addEventListener("click", e => {
-    const code = e.target.closest?.("[data-amp-tweaks-ref]");
-    if (!code || e.button !== 0 || !getSelection().isCollapsed) return;
+    if (e.button !== 0 || !getSelection().isCollapsed) return;
+    const ours = e.target.closest?.("[data-amp-tweaks-ref]");
+    const amps = e.altKey && e.target.closest?.("[data-amp-tweaks-alt]");
+    const el = ours || amps;
+    if (!el) return;
     e.preventDefault();
     e.stopPropagation();
-    open(code, e.altKey);
+    open(el, e.altKey);
   }, true);
 
   new MutationObserver(() => {

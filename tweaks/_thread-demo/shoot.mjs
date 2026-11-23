@@ -66,6 +66,10 @@ const SHOTS = {
     query: "tweaks=clickable-paths", frame: paragraph, setup: "scrollTo(document.querySelectorAll('h3')[2])",
     act: async h => { await h.waitFor("document.querySelector('[data-amp-tweaks-ref=\"file\"]')", "paths to be marked"); await h.glide(REST, centre(await h.rect('[data-amp-tweaks-ref="file"]')), 200); await sleep(400); },
   },
+  "runner-folders/serve.png": {
+    query: "tweaks=runner-folders&notice", frame: async h => { const n = await h.rect(".notice"); return { x: n.x - 12, y: n.y - 12, width: n.width + 24, height: n.height + 24 }; },
+    setup: "scrollTo(document.querySelector('.notice'))",
+  },
   "calm-reading/before.png": { query: "tweaks=off", frame: paragraph, setup: "scrollTo(document.querySelectorAll('h3')[2])" },
   "calm-reading/after.png": { query: "tweaks=calm-reading", frame: paragraph, setup: "scrollTo(document.querySelectorAll('h3')[2])" },
   "tweak-settings/menu.png": {

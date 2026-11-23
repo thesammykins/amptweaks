@@ -1,17 +1,31 @@
 [
   {
+    "id": "2026-11-23-runner-folders",
+    "date": "2026-11-23",
+    "title": "Serve a missing folder from the error",
+    "body": "When a thread can't resume because this Mac's runner doesn't serve its folder, Amp's message gets a button that adds the folder to the runner.",
+    "tweak": "runner-folders"
+  },
+  {
+    "id": "2026-11-23-alt-click",
+    "date": "2026-11-23",
+    "title": "⌥-click Amp's own file and commit links",
+    "body": "In threads that ran on this Mac, ⌥-click a file link to show it in Finder, or a commit link to open it on GitHub. A plain click still opens Amp's tab. Orb threads are unchanged.",
+    "tweak": "clickable-paths"
+  },
+  {
+    "id": "2026-11-23-polish",
+    "date": "2026-11-23",
+    "title": "Full titles on thread and artifact links",
+    "body": "Links to other threads and artifacts in a reply are often cut short. Hover one to read its whole title.",
+    "tweak": "polish"
+  },
+  {
     "id": "2026-11-23-whats-new",
     "date": "2026-11-23",
     "title": "What's new, in the Tweaks menu",
     "body": "New tweaks and changes show up here. The menu now says which tweaks work in Amp alone and which use this Mac.",
     "tweak": "tweak-settings"
-  },
-  {
-    "id": "2026-11-23-polish",
-    "date": "2026-11-23",
-    "title": "Full titles on thread links",
-    "body": "Links to other threads in a reply are often cut short. Hover one to read its whole title.",
-    "tweak": "polish"
   },
   {
     "id": "2026-11-23-clickable-paths",
