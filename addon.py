@@ -83,13 +83,28 @@ def tweak_files() -> list[tuple[str, Path]]:
     return sorted(out)
 
 
+def _meta(d: Path) -> dict:
+    """A tweak folder's tweak.json: title, summary, and needs ("amp": only Amp's web app, or "this-mac": the proxy
+    or the amp CLI on this Mac) with why. Missing or broken files just mean no metadata."""
+    f = d / "tweak.json"
+    try:
+        m = json.loads(f.read_text()) if f.is_file() else {}
+    except ValueError as e:
+        log.warning("amp-tweaks: %s: %s", f, e)
+        return {}
+    return {k: m[k] for k in ("title", "summary", "needs", "why") if isinstance(m.get(k), str)}
+
+
 def tweak_list() -> list[dict]:
-    """Every tweak with whether it's on, for the in-app settings menu. Same rules as `amp-tweaks tweaks`."""
+    """Every tweak with whether it's on and its tweak.json, for the in-app menu. Same rules as `amp-tweaks tweaks`."""
     folders, loose = tweak_sources()
     off = _disabled()
-    rows = [{"name": n, "on": n not in off, "personal": d.parent == TWEAKS_DIR} for n, d in folders.items()]
+    rows = [{"name": n, "on": n not in off, "personal": d.parent == TWEAKS_DIR, **_meta(d)} for n, d in folders.items()]
     rows += [{"name": n, "on": n not in off and Path(n).stem not in off, "personal": True} for n in loose]
     return sorted(rows, key=lambda r: r["name"])
+
+
+CHANGES = Path(__file__).with_name("changes.json")
 
 
 def set_tweak(flow: http.HTTPFlow) -> None:
@@ -348,6 +363,8 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
         return await archive(flow)
     if name == "tweaks.json":
         return respond(flow, 200, json.dumps(tweak_list()), "application/json")
+    if name == "changes.json":
+        return respond(flow, 200, CHANGES.read_bytes() if CHANGES.is_file() else b"[]", "application/json")
     if name == "act/tweak" and flow.request.method == "POST":
         return set_tweak(flow)
     if name == "act/refs" and flow.request.method == "POST":

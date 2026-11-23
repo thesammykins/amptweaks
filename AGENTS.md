@@ -10,6 +10,8 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 - Style with Amp's tokens (`--color-*`, `--text-*`). To beat Amp's own `!important` rules, use `@layer amp-tweaks { … !important }`.
 - Act through Amp, not around it. Clicks, navigation and menus go through Amp's own (hidden) rows. Space threads 500 if you follow their href, and Amp's buttons ignore synthetic `.click()`.
 - Fail open. If a tweak can't find what it needs, leave Amp's UI visible.
+- Give a tweak a `tweak.json`: `title`, `summary`, and `needs` (`"amp"` if it only uses Amp's web app and its API, `"this-mac"` if it needs the proxy's actions or the `amp` CLI, with `why`). The Tweaks menu groups and labels tweaks by it.
+- Add a line to `changes.json` (newest first) when a tweak is added or changes in a way people would notice. It shows in the Tweaks menu's What's new.
 - After restarting the proxy, quit and reopen Amp. While the proxy is down Amp opens a direct connection to ampcode.com, and later reloads can go over it without tweaks.
 
 ## When Amp changes under the hood
@@ -43,13 +45,14 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 
 ## Demo pages and screenshots
 
-`tweaks/focus-sidebar/_demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve `tweaks/focus-sidebar` (`python3 -m http.server`) and open `/_demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node tweaks/focus-sidebar/_demo/shoot.mjs [name…]` re-renders the screenshots in `tweaks/focus-sidebar/images/` for the tweak's README. The `_` prefix keeps the loader from injecting the demo into Amp. `tweaks/_thread-demo/` does the same for Amp's thread pane and rail and runs the thread tweaks (`?tweaks=quick-replies,thread-outline`, or `?tweaks=off`). Serve `tweaks/` and open `/_thread-demo/`. `node tweaks/_thread-demo/shoot.mjs [tweak/shot…]` writes each tweak's `images/`, including GIFs of the animations. Both shooters share `tweaks/_shoot/chrome.mjs`. Never screenshot the live app for a README: it shows real threads.
+`tweaks/focus-sidebar/_demo/` is a stand-in for Amp's sidebar with made-up threads (`threads.js`) that runs the real focus sidebar code, so you can try a change without the live app. Serve `tweaks/focus-sidebar` (`python3 -m http.server`) and open `/_demo/` (`?tweak=off` for Amp's own list, `?mode=project` or `?mode=day`). `node tweaks/focus-sidebar/_demo/shoot.mjs [name…]` re-renders the screenshots in `tweaks/focus-sidebar/images/` for the tweak's README. The `_` prefix keeps the loader from injecting the demo into Amp. `tweaks/_thread-demo/` does the same for Amp's thread pane and rail and runs the thread tweaks (`?tweaks=quick-replies,thread-outline`, or `?tweaks=off`). Serve the repo root and open `/tweaks/_thread-demo/`. `node tweaks/_thread-demo/shoot.mjs [tweak/shot…]` writes each tweak's `images/`, including GIFs of the animations. Both shooters share `tweaks/_shoot/chrome.mjs`. Never screenshot the live app for a README: it shows real threads.
 
 ## Useful endpoints
 
 - `GET /__amp-tweaks/data/threads.json`: thread ids and updated times from the `amp` CLI.
 - `POST /__amp-tweaks/act/archive?id=T-…[,T-…][&undo=1]`: archive or unarchive, in order per thread.
-- `GET /__amp-tweaks/tweaks.json`: every tweak and whether it's on.
+- `GET /__amp-tweaks/tweaks.json`: every tweak, whether it's on, and its `tweak.json`.
+- `GET /__amp-tweaks/changes.json`: the changelog for What's new.
 - `POST /__amp-tweaks/act/tweak?name=X&on=0|1`: turns a tweak off or on (edits `~/.amp-tweaks/disabled`, like the CLI).
 - `POST /__amp-tweaks/act/refs` with `{root, runner: {id, hostname}, paths}`: which paths exist under your home folder, resolved against the thread's root. Empty unless the runner is this Mac (its host names, or a runner id from `amp runner list`).
 - `POST /__amp-tweaks/act/open?path=…[&reveal=1]` or `?url=<GitHub commit>`: opens a file in your editor, shows it in Finder, or opens a commit. Files never open with their default app, so nothing can be launched this way.

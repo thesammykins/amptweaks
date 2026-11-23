@@ -28,13 +28,17 @@ Amp's Mac app is a native shell around ampcode.com, so tweaks go in at the netwo
 
 ## Bundled tweaks
 
-Each one is its own folder, so you can switch them separately. The screenshots come from demo pages with made-up threads.
+Each one is its own folder, so you can switch them separately. Most work in Amp alone; a few use this Mac (the proxy or the `amp` CLI) and say so in the Tweaks menu. The screenshots come from demo pages with made-up threads.
 
 ### Tweaks menu (`tweak-settings`)
 
 A button in Amp's left rail, above your profile, to turn each tweak on or off. A tweak with a script reloads Amp when you switch it; style-only ones switch in place. From the terminal, `amp-tweaks tweaks disable <name>` and `enable <name>` do the same: both write `~/.amp-tweaks/disabled`, so the app and the CLI always agree.
 
-<img src="tweaks/tweak-settings/images/open.gif" width="300" alt="The Tweaks button opening a menu of tweaks with checkmarks">
+What's new in the menu shows each change as a card, like Amp's own news card, with a button to turn that tweak on. The icon in its header says whether it works in Amp alone or uses this Mac.
+
+| Tweaks menu | What's new |
+| --- | --- |
+| <img src="tweaks/tweak-settings/images/menu.png" width="300" alt="The Tweaks menu, grouped into Works in Amp and Uses this Mac"> | <img src="tweaks/tweak-settings/images/news.gif" width="300" alt="The What's new card paging through changes and turning a tweak on"> |
 
 ### Quick replies (`quick-replies`)
 
@@ -63,6 +67,10 @@ A little more space between lines, and inline code tinted instead of boxed.
 | Amp | Calm reading |
 | --- | --- |
 | <img src="tweaks/calm-reading/images/before.png" width="420" alt="A reply with boxed inline code"> | <img src="tweaks/calm-reading/images/after.png" width="420" alt="The same reply with tinted inline code and more line spacing"> |
+
+### Polish (`polish`)
+
+Small fixes across Amp. For now: links to other threads in a reply, which Amp cuts short, show their full title on hover.
 
 ### Focus sidebar (`focus-sidebar`)
 

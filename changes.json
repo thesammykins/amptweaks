@@ -1,0 +1,44 @@
+[
+  {
+    "id": "2026-11-23-whats-new",
+    "date": "2026-11-23",
+    "title": "What's new, in the Tweaks menu",
+    "body": "New tweaks and changes show up here. The menu now says which tweaks work in Amp alone and which use this Mac.",
+    "tweak": "tweak-settings"
+  },
+  {
+    "id": "2026-11-23-polish",
+    "date": "2026-11-23",
+    "title": "Full titles on thread links",
+    "body": "Links to other threads in a reply are often cut short. Hover one to read its whole title.",
+    "tweak": "polish"
+  },
+  {
+    "id": "2026-11-23-clickable-paths",
+    "date": "2026-11-23",
+    "title": "Open files from threads on this Mac",
+    "body": "In threads that ran on a runner on this Mac, file paths open in your editor, and ⌥-click shows them in Finder. Orb threads keep opening files in Amp's own tabs.",
+    "tweak": "clickable-paths"
+  },
+  {
+    "id": "2026-11-23-quick-replies",
+    "date": "2026-11-23",
+    "title": "Quick replies",
+    "body": "Suggested replies fold into one chip. Hover it to see them in full. When the agent is waiting on you, its question comes first.",
+    "tweak": "quick-replies"
+  },
+  {
+    "id": "2026-11-23-thread-outline",
+    "date": "2026-11-23",
+    "title": "Thread outline",
+    "body": "Long threads get a list of what you asked down the right. It tucks into a rail beside images; hover the rail to bring it back.",
+    "tweak": "thread-outline"
+  },
+  {
+    "id": "2026-11-23-tweaks-menu",
+    "date": "2026-11-23",
+    "title": "Tweaks menu",
+    "body": "Turn tweaks on and off from the button above your profile, instead of the terminal.",
+    "tweak": "tweak-settings"
+  }
+]

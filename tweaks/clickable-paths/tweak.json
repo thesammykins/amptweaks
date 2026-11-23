@@ -1,0 +1,1 @@
+{ "title": "Clickable paths", "summary": "Opens file paths from threads that ran on this Mac in your editor.", "needs": "this-mac", "why": "Opening files and finding this Mac's runners happen on this Mac." }

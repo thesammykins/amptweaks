@@ -1,8 +1,8 @@
 // A stand-in for Amp's thread pane and left rail, filled with a made-up thread, that runs the real thread tweaks.
-// Serve tweaks/ (python3 -m http.server) and open /_thread-demo/.
+// Serve the repo root (python3 -m http.server) and open /tweaks/_thread-demo/.
 //   ?tweaks=quick-replies,thread-outline  only those (default: all of them)   ?tweaks=off  Amp as it is
 // _thread-demo/shoot.mjs uses it for the README screenshots and clips, so nothing personal ends up in them.
-const ALL = ["calm-reading", "clickable-paths", "quick-replies", "thread-outline", "tweak-settings"];
+const ALL = ["calm-reading", "clickable-paths", "polish", "quick-replies", "thread-outline", "tweak-settings"];
 const THREAD = "T-0000b111-0000-4000-8000-000000000001";
 const params = new URLSearchParams(location.search);
 const wanted = params.get("tweaks") === "off" ? [] : (params.get("tweaks")?.split(",") ?? ALL);
@@ -11,7 +11,9 @@ const wanted = params.get("tweaks") === "off" ? [] : (params.get("tweaks")?.spli
 const ASK = "Turn the billing_v2 flag on for the API team?";
 const realFetch = fetch.bind(window);
 const json = body => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
-let tweakState = Object.fromEntries([...ALL, "focus-sidebar"].map(n => [n, true]));
+// The tweak list and changelog come from the repo's own tweak.json files and changes.json.
+const tweakState = Object.fromEntries([...ALL, "focus-sidebar"].map(n => [n, params.get("off")?.split(",").includes(n) ? false : true]));
+const meta = async n => { const r = await realFetch(`/tweaks/${n}/tweak.json`); return r.ok ? r.json() : {}; };
 window.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === "string" ? input : input.url, location.href);
   const p = url.pathname;
@@ -23,7 +25,8 @@ window.fetch = async (input, init = {}) => {
     const { root, paths } = JSON.parse(init.body);
     return json(Object.fromEntries(paths.filter(x => x.includes("/") || x.includes(".")).map(x => [x, { path: `${root}/${x}`, dir: x.endsWith("/") }])));
   }
-  if (p === "/__amp-tweaks/tweaks.json") return json(Object.entries(tweakState).sort().map(([name, on]) => ({ name, on, personal: false })));
+  if (p === "/__amp-tweaks/tweaks.json") return json(await Promise.all(Object.entries(tweakState).sort().map(async ([name, on]) => ({ name, on, personal: false, ...(await meta(name)) }))));
+  if (p === "/__amp-tweaks/changes.json") return realFetch("/changes.json");
   if (p === "/__amp-tweaks/act/tweak") { tweakState[url.searchParams.get("name")] = url.searchParams.get("on") === "1"; return json([]); }
   if (p.startsWith("/__amp-tweaks/")) return new Response(null, { status: 204 });
   return realFetch(input, init);
@@ -109,8 +112,10 @@ await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
 scroller.scrollTop = params.has("top") ? 0 : scroller.scrollHeight;
 
 const STYLE_ONLY = new Set(["calm-reading"]);
+const SCRIPT_ONLY = new Set(["polish"]);
+if (!params.has("keep-seen")) try { localStorage.removeItem("amp-tweaks:changes-seen"); } catch {}
 for (const name of wanted) {
-  document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: `/${name}/${name}.css` }));
-  if (!STYLE_ONLY.has(name)) document.head.append(Object.assign(document.createElement("script"), { src: `/${name}/${name}.js` }));
+  if (!SCRIPT_ONLY.has(name)) document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: `/tweaks/${name}/${name}.css` }));
+  if (!STYLE_ONLY.has(name)) document.head.append(Object.assign(document.createElement("script"), { src: `/tweaks/${name}/${name}.js` }));
 }
 document.documentElement.dataset.demoReady = "";

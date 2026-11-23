@@ -1,0 +1,1 @@
+{ "title": "Focus sidebar", "summary": "Shows only the threads that need you and the ones still working.", "needs": "this-mac", "why": "Archive and the thread list use the amp CLI." }

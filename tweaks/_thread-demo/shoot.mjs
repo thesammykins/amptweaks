@@ -8,7 +8,8 @@ import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { openChrome, sleep } from "../_shoot/chrome.mjs";
 
-const ROOT = resolve(import.meta.dirname, "..");
+const ROOT = resolve(import.meta.dirname, ".."); // tweaks/, where each tweak's images/ lives
+const REPO = resolve(ROOT, ".."); // served, so the demo reads the real changes.json and tweak.json files
 const W = 1280;
 const H = 780;
 const REST = [W - 2, H - 2]; // where the pointer waits, so nothing is hovered
@@ -24,6 +25,7 @@ const paragraph = async h => {
   return { x: p.x - 16, y: p.y - 12, width: p.width + 32, height: p.height + 24 };
 };
 const rail = async () => ({ x: 0, y: H - 300, width: 300, height: 300 });
+const news = async () => ({ x: 0, y: H - 240, width: 380, height: 240 });
 
 const centre = r => [r.x + r.width / 2, r.y + r.height / 2];
 
@@ -70,6 +72,22 @@ const SHOTS = {
     query: "tweaks=tweak-settings", frame: rail,
     act: async h => { const b = centre(await h.rect("[data-amp-tweaks-settings] button")); await h.glide(REST, b, 200); await h.click(...b); await sleep(500); },
   },
+  // What's new opens on its own when there's something unseen; thread-outline starts off so its card can turn it on.
+  "tweak-settings/news.png": { query: "tweaks=tweak-settings", frame: news, act: async () => sleep(600) },
+  "tweak-settings/news.gif": {
+    query: "tweaks=tweak-settings&off=thread-outline", frame: news,
+    act: async h => {
+      await sleep(400);
+      const next = centre(await h.rect("[data-amp-tweaks-news] [data-next]"));
+      await h.glide(REST, next, 350);
+      for (let i = 0; i < 4; i++) { await h.click(...next); await sleep(450); }
+      const turnOn = centre(await h.rect("[data-amp-tweaks-news] [data-state]"));
+      await h.glide(next, turnOn, 300); await sleep(250);
+      await h.click(...turnOn); await sleep(900);
+      const close = centre(await h.rect("[data-amp-tweaks-news] [data-close]"));
+      await h.glide(turnOn, close, 300); await h.click(...close); await sleep(600);
+    },
+  },
   "tweak-settings/open.gif": {
     query: "tweaks=tweak-settings", frame: rail,
     act: async h => {
@@ -86,7 +104,7 @@ const SHOTS = {
   },
 };
 
-const h = await openChrome({ root: ROOT, width: W, height: H });
+const h = await openChrome({ root: REPO, width: W, height: H });
 const wanted = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SHOTS);
 try {
   for (const name of wanted) {
@@ -96,7 +114,7 @@ try {
     h.errors.length = 0;
     await h.setMotion(!gif); // stills settle instantly; clips show the real motion
     await h.mouse("mouseMoved", ...REST);
-    await h.page("Page.navigate", { url: `${h.origin}/_thread-demo/?${shot.query}` });
+    await h.page("Page.navigate", { url: `${h.origin}/tweaks/_thread-demo/?${shot.query}` });
     await h.waitFor(`document.documentElement.hasAttribute("data-demo-ready")`, "the demo page");
     if (shot.setup) await h.evaluate(`(() => { const scrollTo = el => { const s = document.querySelector('[data-thread-transcript-scroll]'); s.scrollTop += el.getBoundingClientRect().top - 60; }; ${shot.setup}; })()`);
     await sleep(1200); // tweaks mount, entry animations finish
