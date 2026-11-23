@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-23-puck",
+    "date": "2026-11-23",
+    "title": "Puck, front and centre",
+    "body": "Your Puck sits in the corner of every screen with its latest update on hover. New thread (⌘N) now starts with Puck: type what you're working on and it lands in Puck's chat, ready to send. Switch to Thread for Amp's own popup.",
+    "tweak": "puck"
+  },
+  {
     "id": "2026-11-23-runner-folders",
     "date": "2026-11-23",
     "title": "Serve a missing folder from the error",

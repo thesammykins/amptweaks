@@ -1,0 +1,118 @@
+/* Puck, front and centre. Amp's tokens and Puck's own motion (its 320ms spring for waking lives in Amp's CSS on
+   the copied face); the dock and its preview open like Amp's news card. */
+[data-amp-tweaks-puck-face] { display: inline-grid; flex: none; }
+[data-amp-tweaks-puck-face] .puck-icon { width: 100%; height: 100%; }
+
+/* ---------- the dock ---------- */
+[data-amp-tweaks-puck-dock] {
+  --puck-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: fixed;
+  z-index: 45;
+  right: calc(1.25rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  animation: amp-tweaks-puck-in 360ms var(--puck-ease);
+}
+@keyframes amp-tweaks-puck-in { 0% { opacity: 0; filter: blur(4px); scale: 0.9; } 100% { opacity: 1; filter: none; scale: 1; } }
+[data-amp-tweaks-puck-dock][hidden] { display: none; }
+[data-amp-tweaks-puck-dock] [data-btn] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-popover);
+  box-shadow: var(--shadow-popover, 0 0 0 1px var(--color-border), 0 8px 24px rgb(0 0 0 / 0.45));
+  cursor: pointer;
+  transition: translate 180ms var(--puck-ease);
+}
+@media (hover: hover) { [data-amp-tweaks-puck-dock] [data-btn]:hover { translate: 0 -1px; } }
+[data-amp-tweaks-puck-dock] [data-btn]:focus-visible { outline: 1px solid var(--color-ring); outline-offset: 2px; }
+[data-amp-tweaks-puck-dock] [data-dot] {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--color-terminal-bright-blue, #60a5fa);
+  box-shadow: 0 0 0 2px var(--color-popover);
+  scale: 0;
+  transition: scale 200ms var(--puck-ease);
+}
+[data-amp-tweaks-puck-dock][data-unread] [data-dot] { scale: 1; }
+
+[data-amp-tweaks-puck-dock] [data-peek] {
+  width: 16rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-xl, 0.75rem);
+  background: var(--color-popover);
+  color: var(--color-popover-foreground);
+  box-shadow: var(--shadow-popover, 0 0 0 1px var(--color-border), 0 16px 40px rgb(0 0 0 / 0.5));
+  font-size: var(--text-xs);
+  transform-origin: bottom right;
+  opacity: 0;
+  scale: 0.96;
+  translate: 0 6px;
+  filter: blur(3px);
+  pointer-events: none;
+  transition: opacity 200ms ease-out, scale 360ms var(--puck-ease), translate 360ms var(--puck-ease), filter 250ms ease-out;
+}
+[data-amp-tweaks-puck-dock][data-open] [data-peek] { opacity: 1; scale: 1; translate: 0 0; filter: none; pointer-events: auto; }
+[data-amp-tweaks-puck-dock] [data-who] { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.25rem; color: var(--color-muted-foreground); }
+[data-amp-tweaks-puck-dock] [data-name] { color: var(--color-foreground); font-weight: 600; }
+[data-amp-tweaks-puck-dock] [data-who] kbd { margin-left: auto; font: inherit; font-size: 0.625rem; color: var(--color-muted-foreground); }
+[data-amp-tweaks-puck-dock] [data-msg] { color: var(--color-foreground); line-height: 1.45; }
+
+/* ---------- Puck · Thread in the new-thread popup ---------- */
+[data-amp-tweaks-puck-switch] {
+  --puck-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--color-muted);
+}
+[data-amp-tweaks-puck-switch] [data-thumb] {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 9999px;
+  background: var(--color-background);
+  box-shadow: 0 0 0 1px var(--color-border);
+  transition: left 280ms var(--puck-ease), width 280ms var(--puck-ease);
+}
+[data-amp-tweaks-puck-switch] button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.5rem;
+  padding: 0 0.625rem;
+  border: 0;
+  border-radius: 9999px;
+  background: none;
+  color: var(--color-muted-foreground);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: color 150ms var(--puck-ease);
+}
+[data-amp-tweaks-puck-switch] button[aria-checked="true"] { color: var(--color-foreground); }
+[data-amp-tweaks-puck-switch] button:focus-visible { outline: 1px solid var(--color-ring); }
+/* Puck decides where work runs, so Amp's executor, project and model pickers step aside in Puck mode. */
+[data-amp-tweaks-puck-mode] [data-create-thread-picker-toggle] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-amp-tweaks-puck-dock] { animation: none; }
+  [data-amp-tweaks-puck-dock] [data-peek] { transition: opacity 120ms linear; translate: none; scale: none; filter: none; }
+  [data-amp-tweaks-puck-switch] [data-thumb] { transition: none; }
+}

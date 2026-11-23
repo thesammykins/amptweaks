@@ -40,6 +40,10 @@ What's new in the menu shows each change as a card, like Amp's own news card, wi
 | --- | --- |
 | <img src="tweaks/tweak-settings/images/menu.png" width="300" alt="The Tweaks menu, grouped into Works in Amp and Uses this Mac"> | <img src="tweaks/tweak-settings/images/news.gif" width="300" alt="The What's new card paging through changes and turning a tweak on"> |
 
+### Puck (`puck`)
+
+Puck as the place work starts. Your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it) sits in the corner of every screen: it watches the pointer, shows Amp's unread dot, previews Puck's latest update on hover, and opens Puck on click (Amp's own shortcut is ⌃/). The new-thread popup gets a Puck · Thread switch: on Puck, what you type goes into Puck's chat as a draft, and you send it; on Thread, the popup is Amp's own. It uses Amp's existing Puck chat, so nothing is sent for you.
+
 ### Quick replies (`quick-replies`)
 
 Amp's suggested replies fold into one chip. Hover or click it for the full list. When the agent is waiting on you, the chip shows a ? and the list starts with its question, which scrolls back to where it was asked. Picking a reply is a click on Amp's own reply button.
