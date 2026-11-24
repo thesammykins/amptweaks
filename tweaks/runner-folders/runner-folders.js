@@ -26,6 +26,8 @@
 
   async function scan() {
     queued = false;
+    // Loaded from <head>, so the first scan can run before <body> exists; the observer catches the message later.
+    if (!document.body) return;
     // The element holding Amp's message (found through its text node), so the button sits right under it.
     const hits = [];
     const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.data.includes(PHRASE) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) });
