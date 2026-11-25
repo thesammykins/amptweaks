@@ -6,7 +6,7 @@ import { FINISHED_PAGE } from "./config.js";
 import { recompute } from "./live.js";
 import { applyFilter, menuHTML, openMenu } from "./menu.js";
 import { isShown, recover, render, swipe } from "./render/list.js";
-import { setFinishedOpen } from "./render/tree.js";
+import { setFinishedOpen, setSubOpen } from "./render/tree.js";
 import { S } from "./state.js";
 import { applyMode, prefs, saveIds, store } from "./store.js";
 
@@ -57,7 +57,7 @@ export function endSwipe() {
 }
 
 // Arrow order: rows, plus the "N finished" disclosure and "Show more" where visible.
-export const navOrder = root => [...root.querySelectorAll("[data-thread-id] > [data-amp-focus-row], [data-kids-more], [data-finished-toggle], [data-finished-more]")].filter(isShown);
+export const navOrder = root => [...root.querySelectorAll("[data-thread-id] > [data-amp-focus-row], [data-sub-toggle], [data-kids-more], [data-finished-toggle], [data-finished-more]")].filter(isShown);
 
 export function focusNav(root, el) {
   root.querySelectorAll('[tabindex="0"]').forEach(r => r.setAttribute("tabindex", "-1"));
@@ -73,6 +73,12 @@ export function onDisclosureKey(e, el, root) {
   let handled = true;
   if (e.key === "ArrowDown") order[i + 1] && focusNav(root, order[i + 1]);
   else if (e.key === "ArrowUp") order[i - 1] && focusNav(root, order[i - 1]);
+  else if (el.matches("[data-sub-toggle]") && ["ArrowRight", "ArrowLeft", "Enter", " "].includes(e.key)) {
+    const of = el.dataset.of;
+    const open = e.key === "ArrowRight" ? true : e.key === "ArrowLeft" ? false : prefs.subCollapsed.has(of);
+    if (!setSubOpen(of, open) && e.key === "ArrowLeft") focusNav(root, el.closest("[data-amp-focus-item]").querySelector(`[data-thread-id="${CSS.escape(of)}"] > [data-amp-focus-row]`));
+    requestAnimationFrame(() => el.isConnected && el.focus());
+  }
   else if (el.matches("[data-finished-toggle]") && (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ")) {
     if (e.key === "ArrowRight" && prefs.finishedOpen.has(id)) handled = false;
     else setFinishedOpen(id, e.key === "ArrowRight" ? true : !prefs.finishedOpen.has(id));
@@ -88,10 +94,10 @@ export function onDisclosureKey(e, el, root) {
 }
 
 // Keyboard on our rows runs in the capture phase so Amp's own sidebar key bindings don't swallow it.
-  // Keyboard: arrows move between rows; →/← expand/collapse a family; Enter opens; E archives; S snoozes;
+  // Keyboard: arrows move between rows; →/← expand/collapse a family (or a sub-thread's own); Enter opens; E archives; S snoozes;
   // ⇧F10 / context-menu key opens Amp's menu. Same keys Amp uses where it has them (E = Archive).
 export function onRowKey(e) {
-    const row = e.target.closest?.("[data-amp-focus-row], [data-kids-more], [data-finished-toggle], [data-finished-more]");
+    const row = e.target.closest?.("[data-amp-focus-row], [data-sub-toggle], [data-kids-more], [data-finished-toggle], [data-finished-more]");
     if (!row || e.target !== row || e.metaKey || e.ctrlKey || e.altKey) return;
     const root = row.closest("[data-amp-focus-root]");
     if (!root) return;
@@ -109,6 +115,7 @@ export function onRowKey(e) {
     // Letter shortcuts only when the row was reached by keyboard (a click focuses it too; typing must not archive).
     if ((key === "e" || key === "s" || key === "d" || key === "p") && !row.matches(":focus-visible")) return;
     const expand = open => {
+      if (item && holder !== item) return !!item.querySelector(`[data-sub-toggle][data-of="${CSS.escape(id)}"]`) && setSubOpen(id, open);
       if (!item || holder !== item || !item.querySelector(":scope > [data-family]:not([hidden])")) return false;
       if (prefs.expanded.has(id) === open) return false;
       open ? prefs.expanded.add(id) : prefs.expanded.delete(id);
@@ -175,6 +182,11 @@ export function wireRoot(root) {
       e.preventDefault();
       const id = finToggle.closest("[data-amp-focus-item]").dataset.threadId;
       return setFinishedOpen(id, !prefs.finishedOpen.has(id));
+    }
+    const subToggle = e.target.closest("[data-sub-toggle]");
+    if (subToggle) {
+      e.preventDefault();
+      return setSubOpen(subToggle.dataset.of, prefs.subCollapsed.has(subToggle.dataset.of));
     }
     const kidsMore = e.target.closest("[data-kids-more]");
     if (kidsMore) {

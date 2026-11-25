@@ -29,7 +29,11 @@ export const THREADS = [
     id: "T-billing", title: "Migrate billing to the v2 API", state: "working", status: "Editing src/billing/invoice.ts", repo: "api", branch: "billing-v2", model: "claude-opus-5-5", effort: "high", ago: 3, active: true,
     kids: [
       { id: "T-webhooks", title: "Update webhook handlers", state: "working", status: "Running the webhook tests", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 2,
-        kids: [{ id: "T-retries", title: "Retry failed webhook deliveries", state: "asking", status: "Cap retries at 5 or 10?", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 4 }] },
+        kids: [
+          { id: "T-retries", title: "Retry failed webhook deliveries", state: "asking", status: "Cap retries at 5 or 10?", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 4,
+            kids: [{ id: "T-backoff", title: "Tune the retry backoff", state: "working", status: "Simulating 1,000 failed deliveries", repo: "api", branch: "billing-v2", model: "claude-haiku-5-5", ago: 1 }] },
+          { id: "T-sigs", title: "Verify webhook signatures", state: "working", status: "Adding HMAC checks", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 3 },
+        ] },
       { id: "T-backfill", title: "Backfill invoice IDs", state: "error", error: "Rate limited by the payments provider. Try again later.", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 14 },
       { id: "T-notes", title: "Write migration notes", state: "idle", status: "Wrote MIGRATION.md", ago: 30 },
       { id: "T-types", title: "Generate API types", state: "idle", status: "Generated 48 types", ago: 45 },

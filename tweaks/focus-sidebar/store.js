@@ -22,6 +22,7 @@ export const prefs = {
   finishedOpen: new Set(store.get("focus.finishedOpen", [])), // families whose finished sub-threads are listed
   finishedShown: new Map(), // per family: how many finished rows are listed (grows with "Show more")
   kidsAll: new Set(), // families showing all active sub-threads (this session)
+  subCollapsed: new Set(store.get("focus.subCollapsed", [])), // sub-threads whose own sub-threads are folded away
 };
 
 // Filters are per view: each of Status / Project / Day keeps its own.

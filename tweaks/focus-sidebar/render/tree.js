@@ -1,6 +1,6 @@
 // Families: sub-thread order, guide lines (rails, branches, elbows, state colours) and the "N finished" list.
 import { dismissed } from "../actions.js";
-import { EASE, FINISHED_PAGE, ICON, MAX_DEPTH, MAX_KIDS } from "../config.js";
+import { EASE, FINISHED_PAGE, ICON, MAX_DEPTH, MAX_KIDS, NEEDS } from "../config.js";
 import { setHTML, setText } from "./dom-util.js";
 import { leave, render } from "./list.js";
 import { applyRow, createChild } from "./rows.js";
@@ -25,17 +25,40 @@ export function treeOrder(rootId, kids, tail = false) {
     if (!byParent.has(pid)) byParent.set(pid, []);
     byParent.get(pid).push(k);
   }
+  const below = id => (byParent.get(id) ?? []).flatMap(k => [k, ...below(k.id)]);
   const out = [];
   const walk = (pid, depth, rails) => {
     const list = byParent.get(pid) ?? [];
     list.forEach((k, i) => {
       const last = i === list.length - 1 && !(depth === 1 && tail);
       out.push({ k, depth, last, rails });
-      if (depth < 12) walk(k.id, depth + 1, [...rails, !last]);
+      if (!byParent.has(k.id) || depth >= 12) return;
+      // A sub-thread with its own sub-threads gets a disclosure as its first branch; collapsed, it's the only one.
+      const open = !prefs.subCollapsed.has(k.id);
+      const desc = below(k.id);
+      out.push({ sub: k.id, open, count: desc.length, needs: desc.filter(d => NEEDS.has(d.kind)).length, depth: depth + 1, last: !open, rails: [...rails, !last] });
+      if (open) walk(k.id, depth + 1, [...rails, !last]);
     });
   };
   walk(rootId, 1, []);
   return out;
+}
+
+// "N sub-threads" under a sub-thread: the same quiet disclosure as "N finished". Collapsed, it says what's waiting.
+function applySubToggle(btn, node) {
+  btn.setAttribute("aria-expanded", String(node.open));
+  btn.dataset.of = node.sub;
+  const noun = `${node.count} sub-thread${node.count === 1 ? "" : "s"}`;
+  const needs = !node.open && node.needs ? ` · <span data-needs>${node.needs} need${node.needs === 1 ? "s" : ""} you</span>` : "";
+  setHTML(btn.querySelector("[data-label]"), noun + needs);
+}
+
+export function setSubOpen(id, open) {
+  if (open === !prefs.subCollapsed.has(id)) return false;
+  open ? prefs.subCollapsed.delete(id) : prefs.subCollapsed.add(id);
+  saveIds("focus.subCollapsed", prefs.subCollapsed);
+  render(true);
+  return true;
 }
 
 // Guide lines for one tree row: ancestor rails, then this row's branch (a smooth elbow if it's the last one).
@@ -66,22 +89,45 @@ export function applyItem(el, it, cls, animate, isNew = false) {
   const inner = family.firstElementChild;
   const showAll = prefs.kidsAll.has(it.id);
   const truncated = !showAll && kids.length > MAX_KIDS;
+  const kindOf = n => n.k?.kind ?? "";
   const all = treeOrder(it.id, kids, truncated || !!it.finished);
-  const visible = truncated ? all.slice(0, MAX_KIDS) : all;
-  const hiddenCount = all.length - visible.length;
+  let shownRows = 0;
+  const visible = truncated ? all.filter(n => n.sub || ++shownRows <= MAX_KIDS) : all;
+  const hiddenCount = all.filter(n => !n.sub).length - visible.filter(n => !n.sub).length;
   // Guide lines only when there's more than one branch to show; a single sub-thread just indents.
   el.toggleAttribute("data-tree-on", visible.length + (hiddenCount ? 1 : 0) + (it.finished ? 1 : 0) > 1);
   const existing = new Map([...inner.querySelectorAll(":scope > [data-amp-focus-child][data-thread-id]")].map(c => [c.dataset.threadId, c]));
+  for (const b of inner.querySelectorAll(":scope > [data-sub-toggle]:not([data-leaving])")) existing.set(`sub:${b.dataset.of}`, b);
   let prev = null;
   // Line colours: the run down to each sub-thread (and its branch) takes that thread's state; the run on past it
   // takes the next sibling's. The parent's connector takes the first sub-thread's.
   const nextKind = i => {
     const d = visible[i].depth;
-    for (let j = i + 1; j < visible.length; j++) { if (visible[j].depth < d) break; if (visible[j].depth === d) return visible[j].k.kind; }
+    for (let j = i + 1; j < visible.length; j++) { if (visible[j].depth < d) break; if (visible[j].depth === d) return kindOf(visible[j]); }
     return "";
   };
-  el.dataset.firstBranch = visible[0]?.k.kind ?? "";
+  el.dataset.firstBranch = visible[0] ? kindOf(visible[0]) : "";
   visible.forEach((node, i) => {
+    if (node.sub) {
+      let btn = existing.get(`sub:${node.sub}`);
+      if (btn) existing.delete(`sub:${node.sub}`);
+      else {
+        btn = document.createElement("button");
+        btn.type = "button";
+        btn.tabIndex = -1;
+        btn.setAttribute("data-sub-toggle", "");
+        btn.innerHTML = `<span data-tree aria-hidden="true"></span>${ICON.chevron}<span data-label></span>`;
+      }
+      applyTree(btn, node.depth, node.last, node.rails);
+      const nk = nextKind(i);
+      if (btn.dataset.next !== nk) btn.dataset.next = nk;
+      applySubToggle(btn, node);
+      let want = prev ? prev.nextElementSibling : inner.firstElementChild;
+      while (want?.hasAttribute("data-leaving")) want = want.nextElementSibling;
+      if (btn !== want) inner.insertBefore(btn, want);
+      prev = btn;
+      return;
+    }
     const c = node.k;
     let ch = existing.get(c.id);
     if (ch) existing.delete(c.id);
@@ -90,7 +136,7 @@ export function applyItem(el, it, cls, animate, isNew = false) {
       if (animate && expanded && !isNew) requestAnimationFrame(() => ch.animate([{ opacity: 0, transform: "translateY(-3px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: EASE }));
     }
     applyTree(ch, node.depth, node.last, node.rails);
-    if (ch.dataset.branch !== c.kind) ch.dataset.branch = c.kind;
+    if (ch.dataset.lineKind !== c.kind) ch.dataset.lineKind = c.kind;
     const nk = nextKind(i);
     if (ch.dataset.next !== nk) ch.dataset.next = nk;
     applyRow(ch.querySelector(":scope > [data-amp-focus-row]"), c, { child: true, cls, mode: prefs.mode });

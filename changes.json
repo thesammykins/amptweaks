@@ -3,7 +3,7 @@
     "id": "2026-11-26-focus-amp-snooze",
     "date": "2026-11-26",
     "title": "Snooze with Amp, sub-threads where they belong",
-    "body": "Snooze and Mark done now use Amp's own snooze and read state, so Amp and your other devices agree, and Amp wakes a snoozed thread when it needs you. Sub-threads sit under the thread that started them, even when Amp's list flattens them. A thread whose runner is offline or whose messages didn't send shows under Needs you. Hover buttons slide out from behind the sub-thread button, which no longer moves.",
+    "body": "Snooze and Mark done now use Amp's own snooze and read state, so Amp and your other devices agree, and Amp wakes a snoozed thread when it needs you. Sub-threads sit under the thread that started them, fill the sidebar's width, and any sub-thread with its own gets an \"N sub-threads\" fold, like \"N finished\". A thread whose runner is offline or whose messages didn't send shows under Needs you. Hover buttons slide out from behind the sub-thread button, which no longer moves.",
     "tweak": "focus-sidebar"
   },
   {

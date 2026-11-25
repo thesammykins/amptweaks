@@ -588,7 +588,7 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 
 /* ---------- "N finished": a disclosure listing a family's finished sub-threads ---------- */
 [data-finished] { display: flex; flex-direction: column; }
-[data-finished-toggle], [data-finished-more] {
+[data-finished-toggle], [data-finished-more], [data-sub-toggle] {
   all: unset;
   box-sizing: border-box;
   display: inline-flex;
@@ -603,17 +603,19 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   cursor: default;
   transition: color 140ms var(--ease-out);
 }
-[data-finished-toggle] svg {
+[data-finished-toggle] svg, [data-sub-toggle] svg {
   width: 0.6875rem;
   height: 0.6875rem;
   transform: rotate(-90deg);
   transition: transform 260ms var(--ease-out);
 }
 [data-finished][data-open] [data-finished-toggle] svg { transform: rotate(0deg); }
+[data-sub-toggle][aria-expanded="true"] svg { transform: rotate(0deg); }
+[data-sub-toggle] [data-needs] { color: var(--color-warning); }
 @media (pointer: fine) {
-  [data-finished-toggle]:hover, [data-finished-more]:hover { color: var(--color-foreground); }
+  [data-finished-toggle]:hover, [data-finished-more]:hover, [data-sub-toggle]:hover { color: var(--color-foreground); }
 }
-[data-finished-toggle]:focus-visible, [data-finished-more]:focus-visible { outline: 2px solid var(--color-ring); outline-offset: -2px; }
+[data-finished-toggle]:focus-visible, [data-finished-more]:focus-visible, [data-sub-toggle]:focus-visible { outline: 2px solid var(--color-ring); outline-offset: -2px; }
 [data-finished-more] { margin-left: calc(var(--icon-w) + var(--gap)); }
 
 [data-finished-body] {
@@ -639,7 +641,7 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 [data-amp-focus-finished] [data-amp-focus-row] { padding-top: 0.25rem; padding-bottom: 0.3125rem; }
 
 @media (pointer: coarse) {
-  [data-finished-toggle], [data-finished-more] { min-height: 2.75rem; }
+  [data-finished-toggle], [data-finished-more], [data-sub-toggle] { min-height: 2.75rem; }
 }
 
 /* ---------- family tree: rails, branches, a smooth elbow at the end ----------
@@ -653,8 +655,8 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 }
 [data-amp-focus-item]:has(> [data-amp-focus-row][data-space]) { --tree: color-mix(in oklab, var(--space-color, var(--color-muted-foreground)) 50%, transparent); }
 
-[data-amp-focus-child], [data-kids-more], [data-finished] { position: relative; }
-[data-amp-focus-child] { margin-left: calc((var(--d, 1) - 1) * var(--indent)); }
+[data-amp-focus-child], [data-kids-more], [data-finished], [data-sub-toggle] { position: relative; }
+[data-amp-focus-child], [data-sub-toggle] { margin-left: calc((var(--d, 1) - 1) * var(--indent)); }
 [data-tree] { position: absolute; inset: 0; pointer-events: none; display: none; }
 /* Only the family's own branches (sub-threads, "Show more", "N finished"); the finished rows draw their own subtree. */
 [data-amp-focus-item][data-tree-on] > [data-family] > [data-family-inner] > * > [data-tree] { display: block; }
@@ -673,7 +675,7 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   border-bottom-left-radius: 0.5rem;
 }
 /* The "N finished" and "Show more" branches meet the line at their own text's centre. */
-[data-finished] > [data-tree], [data-kids-more] > [data-tree] { --elbow-y: calc(0.125rem + var(--text-xs--line-height) / 2); }
+[data-finished] > [data-tree], [data-kids-more] > [data-tree], [data-sub-toggle] > [data-tree] { --elbow-y: calc(0.125rem + var(--text-xs--line-height) / 2); }
 [data-finished] > [data-tree] { bottom: auto; height: calc(0.5rem + var(--text-xs--line-height)); }
 
 /* Connector from the parent's icon down to its first branch. */
@@ -809,16 +811,19 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 @media (pointer: coarse) { [data-retry-label] { opacity: 1; } }
 
 /* ---------- filter menu: sections, grids, segmented controls ---------- */
-[data-amp-focus-menu] { min-width: 0; width: 19rem; max-height: min(36rem, 80vh); display: flex; flex-direction: column; overflow: hidden; }
+/* As wide as the sidebar allows (up to 21rem); columns shrink and labels wrap, so nothing scrolls sideways. */
+[data-amp-focus-menu] { min-width: 0; width: min(21rem, calc(100cqi - 2 * var(--row-x))); max-height: min(36rem, 80vh); display: flex; flex-direction: column; overflow: hidden; }
 [data-menu-top] { display: flex; align-items: baseline; justify-content: space-between; padding: 0.375rem 0.625rem 0.25rem; }
 [data-menu-top] [data-menu-title] { padding: 0; }
 [data-menu-reset] { all: unset; font-size: var(--text-xs); color: var(--color-muted-foreground); cursor: default; }
 [data-menu-reset]:hover { color: var(--color-foreground); }
-[data-menu-body] { overflow-y: auto; padding: 0 0.125rem; }
+[data-menu-body] { overflow: hidden auto; padding: 0 0.125rem; }
 [data-menu-section] { padding: 0.25rem 0 0.375rem; }
 [data-menu-section] + [data-menu-section] { border-top: 1px solid var(--color-border); }
 [data-menu-section] [data-menu-heading] { padding: 0.25rem 0.625rem 0.125rem; }
-[data-amp-focus-menu] [data-grid] { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.125rem; }
+[data-amp-focus-menu] [data-grid] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 0.125rem; }
+[data-amp-focus-menu] [data-grid] [data-f] { min-width: 0; }
+[data-amp-focus-menu] [data-grid] [data-label] { white-space: normal; overflow-wrap: anywhere; }
 [data-amp-focus-menu] [data-grid][data-scroll] { max-height: 7.5rem; overflow-y: auto; }
 [data-amp-focus-menu] [data-grid] [data-f] { padding-inline: 0.625rem !important; }
 [data-seg] {
@@ -840,7 +845,7 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
   width: auto;
 }
 [data-amp-focus-menu] [data-seg] [data-f][aria-checked="true"] { background: var(--color-popover); color: var(--color-foreground); box-shadow: 0 1px 2px rgb(0 0 0 / 0.25); }
-[data-seg-row] { display: flex; align-items: center; justify-content: space-between; padding-left: 0.625rem; }
+[data-seg-row] { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; padding-left: 0.625rem; }
 [data-seg-row] > span { font-size: var(--text-sm); color: var(--color-muted-foreground); }
 [data-seg-row] [data-seg] { margin-left: 0.5rem; }
 [data-menu-footer] { display: flex; flex-direction: column; border-top: 1px solid var(--color-border); padding-top: 0.25rem; }
@@ -850,9 +855,9 @@ html:not([data-amp-focus="on"]) [data-amp-focus-root] > :not([data-amp-focus-foo
 [data-menu-top] [data-menu-title] { white-space: nowrap; }
 /* Family lines take the state of the thread they lead to: working green, waiting orange, failed red; done/idle stay grey. */
 [data-amp-focus-item] { --line-working: color-mix(in oklab, var(--color-success) 70%, transparent); --line-waiting: color-mix(in oklab, var(--color-warning) 75%, transparent); --line-failed: color-mix(in oklab, var(--color-destructive) 70%, transparent); }
-[data-branch="working"] { --branch: var(--line-working); }
-[data-branch="approve"], [data-branch="asking"], [data-branch="stalled"] { --branch: var(--line-waiting); }
-[data-branch="failed"] { --branch: var(--line-failed); }
+[data-line-kind="working"] { --branch: var(--line-working); }
+[data-line-kind="approve"], [data-line-kind="asking"], [data-line-kind="stalled"] { --branch: var(--line-waiting); }
+[data-line-kind="failed"] { --branch: var(--line-failed); }
 [data-next="working"] { --next: var(--line-working); }
 [data-next="approve"], [data-next="asking"], [data-next="stalled"] { --next: var(--line-waiting); }
 [data-next="failed"] { --next: var(--line-failed); }

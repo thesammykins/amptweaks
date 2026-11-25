@@ -6,7 +6,7 @@ Swaps Amp's thread list for just the threads that need you and the ones still wo
 | --- | --- |
 | <img src="images/before.png" width="360" alt="Amp's thread list: every space, thread and sub-thread"> | <img src="images/after.png" width="360" alt="The focus sidebar: pinned, spaces, working and needs-you sections"> |
 
-Threads are grouped by Status, Project or Day, with a filter menu at the top right for what each view shows. Pinned threads (Amp's own pins) stay at the top of Status even when idle, and Amp's search shows its matches in the same rows. Sub-threads and Spaces nest under the thread that started them (from Amp's own lineage, so a sub-thread of a sub-thread keeps its place even where Amp's list flattens it), and a family's finished threads sit under "N finished".
+Threads are grouped by Status, Project or Day, with a filter menu at the top right for what each view shows. Pinned threads (Amp's own pins) stay at the top of Status even when idle, and Amp's search shows its matches in the same rows. Sub-threads and Spaces nest under the thread that started them (from Amp's own lineage, so a sub-thread of a sub-thread keeps its place even where Amp's list flattens it), and a family's finished threads sit under "N finished". A sub-thread with sub-threads of its own gets an "N sub-threads" fold under it (→ and ← work on the row too); folded, it says how many of them need you.
 
 | Grouped by project | Filters |
 | --- | --- |
