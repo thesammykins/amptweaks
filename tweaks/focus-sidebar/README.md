@@ -13,7 +13,7 @@ Threads are grouped by Status, Project or Day, with a filter menu at the top rig
 | <img src="images/project.png" width="360" alt="Threads grouped by repository"> | <img src="images/menu.png" width="360" alt="The filter menu"> |
 
 - Hover a row for pin, archive and Amp's own menu (plus Mark done on an Ask or a finished thread, and Retry on a failure). The buttons slide out from behind a family's sub-thread button, which stays where it is. Or swipe left with two fingers (a full swipe archives). Swipe right to snooze.
-- Snooze is Amp's own "Snooze Until I'm Needed": Amp brings the thread back when it has a new message or needs an approval, and your other devices agree. Mark done marks a finished thread read in Amp, or snoozes an Ask until it's needed.
+- Snooze is Amp's own "Snooze Until I'm Needed": Amp brings the thread back when it has a new message or needs an approval, and your other devices agree. Mark done marks a finished thread read in Amp. Amp can't snooze a thread that's waiting on your answer, so S or Mark done on one hides it on this Mac until the thread changes.
 - A thread whose runner has gone offline, or whose messages didn't send, shows under Needs you.
 
   <img src="images/hover.png" width="352" alt="A failed thread on hover, with Retry, pin, menu and archive">

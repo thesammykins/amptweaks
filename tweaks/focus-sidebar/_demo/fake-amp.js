@@ -120,7 +120,12 @@ window.fetch = async (input, init) => {
   if (url.pathname === "/__amp-tweaks/data/threads.json") return json(all.map(t => ({ id: t.id, updated: iso(t.ago) })));
   if (url.pathname.startsWith("/__amp-tweaks/")) return new Response(null, { status: 204 });
   const r = url.pathname.match(/^\/_app\/remote\/[^/]+\/([A-Za-z]+)$/);
-  if (r && REMOTE[r[1]]) return remoteResult(REMOTE[r[1]](init?.body ? await argOf(init) : undefined));
+  if (r && REMOTE[r[1]]) {
+    const arg = init?.body ? await argOf(init) : undefined;
+    // Like Amp: a thread waiting on your input can't be snoozed.
+    if (r[1] === "snoozeThreadCommand" && arg.choice !== "off" && byId.get(arg.threadID)?.state === "asking") return json({ type: "error", error: { status: 500, message: "Internal Error" } });
+    return remoteResult(REMOTE[r[1]](arg));
+  }
   const m = url.pathname.match(/^\/api\/threads\/([^/]+)$/);
   if (m) return byId.has(m[1]) ? json(detail(byId.get(m[1]))) : json({ error: "not found" }, 404);
   return realFetch(input, init);

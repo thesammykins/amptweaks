@@ -57,6 +57,12 @@ export const applyMode = () => (document.documentElement.dataset.ampFocus = pref
 // Snoozes are Amp's (amp/list.js); clear the per-Mac list earlier versions kept.
 localStorage.removeItem("amp-tweaks:focus.snoozed");
 
+// Amp can't snooze a thread that's waiting on your input, so those are hidden on this Mac instead, until the thread
+// changes (a different state or a newer "since"). Keyed by id: { kind, since, at }.
+export const heldHere = new Map(fresh(Object.entries(store.get("focus.heldHere", {})), v => v.at ?? 0));
+
+export const saveHeldHere = () => store.set("focus.heldHere", Object.fromEntries(heldHere));
+
 // ---------- detail cache (slim, persisted so reloads don't refetch everything) ----------
 export const cache = new Map(fresh(Object.entries(store.get("focus.cache.v3", {})), v => v.fetchedAt ?? 0));
 

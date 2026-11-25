@@ -2,7 +2,7 @@
 import { KIND_ORDER, NEEDS, OLDEST_FIRST, STALL_MS, WORKING } from "./config.js";
 import { activeIdSet } from "./render/list.js";
 import { S } from "./state.js";
-import { F, cache } from "./store.js";
+import { F, cache, heldHere, saveHeldHere } from "./store.js";
 
 // ---------- classification ----------
 export const iso = t => (t ? new Date(t).toISOString() : null);
@@ -127,6 +127,12 @@ export function buildItems(rows, ids) {
     if (S.readHold.has(id)) { if (S.readHold.get(id) > Date.now() && row?.unread !== false) continue; S.readHold.delete(id); }
     let c = classify(d0, row);
     if (!c && row?.pinned) c = quiet(d0, row);
+    if (heldHere.has(id)) {
+      const h = heldHere.get(id);
+      if (c && c.kind === h.kind && (c.since ?? null) === h.since) continue;
+      heldHere.delete(id);
+      saveHeldHere();
+    }
     const d = d0 ?? { title: row?.title || "Thread" };
     // The thread you have open keeps its place (e.g. a Done you're reading) until you move on.
     if (!c && activeIds.has(id) && prev.has(id)) {

@@ -6,7 +6,7 @@ import { recompute, refresh } from "./live.js";
 import { esc } from "./render/dom-util.js";
 import { activeIdSet, collapse, ensureRoot, isShown, render, swipe } from "./render/list.js";
 import { S } from "./state.js";
-import { cache } from "./store.js";
+import { cache, heldHere, saveHeldHere } from "./store.js";
 
 // ---------- actions ----------
 // Per-thread results: { ok, done: [ids that succeeded], failed: [{ id, error }] }.
@@ -136,18 +136,27 @@ export function markDone(el, id) {
     .catch(e => { S.readHold.delete(id); console.warn(TAG, "mark read failed", id, e.message); toast(`Couldn't mark ${titleOf(id)} read`, 0, null); recompute(true); });
 }
 
+// Amp refuses to snooze a thread that's waiting on your input (it answers 500), so when Amp says no, the thread is
+// held on this Mac instead until it changes.
 export function snoozeItem(el, id, done = false) {
   if (!id) return closeTray(el);
+  const it = S.model.flatMap(i => [i, ...(i.children ?? [])]).find(i => i.id === id);
   S.ampSnoozed.add(id);
   leaveRow(el, id, done);
-  const op = snoozeThread(id);
+  const op = snoozeThread(id).then(previous => ({ previous }), e => {
+    S.ampSnoozed.delete(id);
+    console.info(TAG, "Amp didn't snooze it; holding it here until it changes", id, e.message);
+    heldHere.set(id, { kind: it?.kind ?? null, since: it?.since ?? null, at: Date.now() });
+    saveHeldHere();
+    return null;
+  });
   pushUndo(`${done ? "Marked done" : "Snoozed"} ${titleOf(id)}`, 0, async () => {
     S.ampSnoozed.delete(id);
+    const r = await op;
+    if (heldHere.delete(id)) saveHeldHere();
     recompute(true);
-    const previous = await op.catch(() => undefined);
-    await unsnoozeThread(id, previous).catch(e => toast(`Couldn't unsnooze ${titleOf(id)}: ${e.message}`, 0, null));
+    if (r) await unsnoozeThread(id, r.previous).catch(e => toast(`Couldn't unsnooze ${titleOf(id)}: ${e.message}`, 0, null));
   });
-  op.catch(e => { S.ampSnoozed.delete(id); console.warn(TAG, "snooze failed", id, e.message); toast(`Couldn't snooze ${titleOf(id)}`, 0, null); recompute(true); });
 }
 
 
