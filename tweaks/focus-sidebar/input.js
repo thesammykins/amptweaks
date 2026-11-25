@@ -132,7 +132,7 @@ export function onRowKey(e) {
       next?.focus();
     }
     else if (key === "s" && holder === item) snoozeItem(item, id);
-    else if (key === "d" && row.dataset.kind === "asking") markDone(holder, id);
+    else if (key === "d" && (row.dataset.kind === "asking" || row.dataset.kind === "review")) markDone(holder, id);
     else if (key === "p") pinThread(id);
     else if (key === "ContextMenu" || (key === "F10" && e.shiftKey)) { const r = row.getBoundingClientRect(); openAmpMenu(id, r.left + 24, r.bottom); }
     else handled = false;
@@ -303,22 +303,3 @@ export function wireRoot(root) {
   });
 }
 
-// Rows with a sub-thread toggle: the icons show once the pointer is past the toggle (to its right, by more than a small
-// overshoot), which also covers coming in from the right. Anywhere left of it, nothing moves, so the toggle stays where
-// you're reaching. Once shown they stay until the pointer leaves the row.
-export const PAST_TOGGLE = 4;
-
-S.revealRow = null;
-
-export const clearReveal = () => { S.revealRow?.removeAttribute("data-reveal"); S.revealRow = null; };
-
-// Window + capture: Amp's sidebar handlers can stop pointer events before they reach the document.
-window.addEventListener("mousemove", e => {
-  const row = e.target.closest?.("[data-amp-focus-root] [data-amp-focus-row]") ?? null;
-  if (row !== S.revealRow) { clearReveal(); S.revealRow = row; }
-  if (!row || row.hasAttribute("data-reveal")) return;
-  const tg = row.querySelector("[data-family-toggle]");
-  if (tg && e.clientX > tg.getBoundingClientRect().right + PAST_TOGGLE) row.setAttribute("data-reveal", "");
-}, { capture: true, passive: true });
-
-document.documentElement.addEventListener("mouseleave", clearReveal);

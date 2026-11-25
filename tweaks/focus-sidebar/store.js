@@ -1,4 +1,4 @@
-// Per-viewer storage (localStorage): prefs, per-view filters, display options, snoozes, the thread detail cache.
+// Per-viewer storage (localStorage): prefs, per-view filters, display options, the thread detail cache.
 import { MODES, RECENT_MS } from "./config.js";
 import { S } from "./state.js";
 
@@ -53,10 +53,8 @@ prefs.display = { ...DEFAULT_DISPLAY, ...store.get("focus.display", {}) };
 
 export const applyMode = () => (document.documentElement.dataset.ampFocus = prefs.focus ? "on" : "off");
 
-// Snoozed threads stay hidden until something in them changes (Amp's row signals or the thread's updatedAt).
-export const snoozed = new Map(fresh(Object.entries(store.get("focus.snoozed", {})), v => v.at ?? 0));
-
-export const saveSnoozed = () => store.set("focus.snoozed", Object.fromEntries(snoozed));
+// Snoozes are Amp's (amp/list.js); clear the per-Mac list earlier versions kept.
+localStorage.removeItem("amp-tweaks:focus.snoozed");
 
 // ---------- detail cache (slim, persisted so reloads don't refetch everything) ----------
 export const cache = new Map(fresh(Object.entries(store.get("focus.cache.v3", {})), v => v.fetchedAt ?? 0));

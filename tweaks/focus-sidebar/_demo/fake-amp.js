@@ -1,6 +1,7 @@
 // A stand-in for Amp's sidebar, filled with made-up threads, that runs the real focus sidebar on top.
 // Serve tweaks/focus-sidebar and open /_demo/ (?tweak=off shows Amp's own list, ?mode=project|day picks the view).
 // _demo/shoot.mjs uses it to make the README screenshots, so nothing personal ever ends up in them.
+import { flatten, unflatten } from "../amp/remote.js";
 import { SPACES, THREADS } from "./threads.js";
 
 const params = new URLSearchParams(location.search);
@@ -29,13 +30,16 @@ function row(t, depth = 0) {
   const mark = t.state === "working" ? "data-thread-row-running-icon" : t.state === "error" ? "data-thread-row-error" : "";
   const status = t.state === "error" ? t.error : t.status;
   const kids = isSpace || t.kids?.length;
+  const blocked = t.offline ? `<span data-thread-row-waiting-for-runner></span>` : t.unsent ? `<span data-thread-row-unsent></span>` : "";
   return `<a href="/threads/${t.id}" data-sidebar-thread-id="${t.id}" data-active="${!!t.active}" data-depth="${depth}" ${t.pinned ? "data-thread-row-pinned" : ""}>
-    <div data-thread-row-icon>${mark ? `<span ${mark}>${icon}</span>` : icon}<span data-thread-row-unread-badge class="${unreadStates.has(t.state) ? "" : "opacity-0"}"></span></div>
+    <div data-thread-row-icon>${mark ? `<span ${mark}>${icon}</span>` : icon}<span data-thread-row-unread-badge class="${unreadStates.has(t.state) ? "" : "opacity-0"}"></span></div>${blocked}
     <div data-amp-text><span data-title-text>${esc(t.title)}</span>${status ? `<span data-thread-row-status-line>${esc(status)}</span>` : ""}</div>
     ${kids ? `<button type="button" data-sidebar-subthreads-toggle class="amp-toggle" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 15-6-6-6 6"/></svg></button>` : ""}
   </a>`;
 }
-const family = (t, depth = 0) => row(t, depth) + (t.kids?.length ? `<div data-sidebar-subthreads-of="${t.id}">${t.kids.map(k => family(k, depth + 1)).join("")}</div>` : "");
+// Like Amp, the DOM nests every descendant directly under the root (one level).
+const descendants = t => (t.kids ?? []).flatMap(k => [k, ...descendants(k)]);
+const family = t => row(t) + (t.kids?.length ? `<div data-sidebar-subthreads-of="${t.id}">${descendants(t).map(k => row(k, 1)).join("")}</div>` : "");
 
 const FILTER = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M3 6h18M7 12h10M10 18h4"/></svg>`;
 const needYou = [...SPACES.flatMap(s => s.kids), ...THREADS.flatMap(t => [t, ...(t.kids ?? [])])].filter(t => ["asking", "approve", "error", "done"].includes(t.state)).length;
@@ -61,7 +65,11 @@ document.body.innerHTML = `<div data-demo-window>
 document.addEventListener("click", e => { if (e.target.closest("a[href]")) e.preventDefault(); }, true);
 
 // ---------- Amp's API and the proxy, answered from the made-up threads ----------
-const all = [...SPACES.flatMap(s => [s, ...s.kids]), ...THREADS.flatMap(t => [t, ...(t.kids ?? [])])];
+const all = [...SPACES, ...THREADS].flatMap(t => [t, ...descendants(t)]);
+// Amp's lineage (nearest ancestor first), from the real nesting and apiParent.
+const lineage = new Map();
+const walk = (t, chain) => { lineage.set(t.id, t.apiParent ? [t.apiParent] : chain); for (const k of t.kids ?? []) walk(k, [t.id, ...chain]); };
+for (const t of [...SPACES, ...THREADS]) walk(t, []);
 const byId = new Map(all.map(t => [t.id, t]));
 const STATE = { working: "working", stalled: "working", approve: "awaiting_approval", error: "error" };
 
@@ -80,11 +88,39 @@ function detail(t) {
 }
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+// Amp's remote functions (/_app/remote/<hash>/<name>), in Amp's wire format.
+const snoozes = new Set();
+let revision = 1;
+const remoteResult = result => json({ type: "result", data: flatten({ _: result }) });
+const argOf = async init => {
+  const { payload } = JSON.parse(init.body);
+  return unflatten(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(payload.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)))));
+};
+const setUnread = (id, on) => {
+  document.querySelector(`a[data-sidebar-thread-id="${id}"] [data-thread-row-unread-badge]`)?.classList.toggle("opacity-0", !on);
+  revision++;
+};
+const REMOTE = {
+  listSidebarRecentThreads: () => ({ recentThreads: all.filter(t => !snoozes.has(t.id)).map(t => ({ id: t.id, title: t.title, ...(lineage.get(t.id).length ? { origin: { kind: "thread", sourceThreadID: lineage.get(t.id)[0] } } : {}) })),
+    sourceThreadAncestors: Object.fromEntries([...lineage].filter(([, c]) => c.length)) }),
+  listSidebarSnoozes: () => ({ snoozedThreads: [...snoozes].map(id => ({ threadID: id, archived: false, listed: false, mode: "next_message", snoozedUntil: null })) }),
+  getSidebarResourceRevisions: () => ({ threads: revision }),
+  snoozeThreadCommand: a => {
+    if (a.choice === "off" || a.restore !== undefined) snoozes.delete(a.threadID); else snoozes.add(a.threadID);
+    revision++;
+    return { previous: { liftedAt: null } };
+  },
+  markThreadsReadCommand: a => { a.threadIDs.forEach(id => setUnread(id, false)); return { updatedThreadIDs: a.threadIDs }; },
+  markThreadUnreadCommand: a => { setUnread(a.threadID, true); return {}; },
+};
 const realFetch = window.fetch.bind(window);
 window.fetch = async (input, init) => {
   const url = new URL(typeof input === "string" ? input : input.url, location.href);
   if (url.pathname === "/__amp-tweaks/data/threads.json") return json(all.map(t => ({ id: t.id, updated: iso(t.ago) })));
   if (url.pathname.startsWith("/__amp-tweaks/")) return new Response(null, { status: 204 });
+  const r = url.pathname.match(/^\/_app\/remote\/[^/]+\/([A-Za-z]+)$/);
+  if (r && REMOTE[r[1]]) return remoteResult(REMOTE[r[1]](init?.body ? await argOf(init) : undefined));
   const m = url.pathname.match(/^\/api\/threads\/([^/]+)$/);
   if (m) return byId.has(m[1]) ? json(detail(byId.get(m[1]))) : json({ error: "not found" }, 404);
   return realFetch(input, init);

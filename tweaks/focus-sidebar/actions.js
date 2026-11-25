@@ -1,12 +1,12 @@
 // User actions: archive (with the void animation), undo, snooze, mark done, archive all done, toasts.
-import { navigate } from "./amp/actions.js";
+import { markRead, markUnread, navigate, snoozeThread, unsnoozeThread } from "./amp/actions.js";
 import { EASE, TAG, reduceMotion } from "./config.js";
 import { closeTray } from "./input.js";
 import { recompute, refresh } from "./live.js";
 import { esc } from "./render/dom-util.js";
 import { activeIdSet, collapse, ensureRoot, isShown, render, swipe } from "./render/list.js";
 import { S } from "./state.js";
-import { cache, saveSnoozed, snoozed } from "./store.js";
+import { cache } from "./store.js";
 
 // ---------- actions ----------
 // Per-thread results: { ok, done: [ids that succeeded], failed: [{ id, error }] }.
@@ -114,16 +114,45 @@ export function archiveItems(entries, labelText) {
 // True once the user has pressed Undo for this archive (its entry has left the stack).
 export const undoInFlight = fn => !undoStack.some(u => u.fn === fn);
 
-// Mark done: Amp has no "read" state for an Ask (it's the agent's last message waiting on input), so this is ours:
-// the row stays hidden until the thread changes (a new message or state), with no time limit.
-export const markDone = (el, id) => snoozeItem(el, id, true);
+// Snooze and mark done are Amp's own: "Snooze Until I'm Needed" (Amp wakes it on a new message or an approval) and
+// Mark as Read, so Amp's list and your other devices agree. A snoozed root takes its family with it.
+// Mark done: a finished, unread thread is marked read; anything else (an Ask, a failure) snoozes until it's needed.
+// Threads marked read stay hidden until Amp's row drops its unread dot (or 20s pass).
+S.readHold = new Map();
+
+export function markDone(el, id) {
+  const it = S.model.flatMap(i => [i, ...(i.children ?? [])]).find(i => i.id === id);
+  if (it?.kind !== "review") return snoozeItem(el, id, true);
+  S.readHold.set(id, Date.now() + 20_000);
+  leaveRow(el, id, true);
+  const op = markRead([id]);
+  pushUndo(`Marked ${titleOf(id)} read`, 0, async () => {
+    S.readHold.delete(id);
+    await op.catch(() => {});
+    await markUnread(id).catch(e => toast(`Couldn't mark ${titleOf(id)} unread: ${e.message}`, 0, null));
+    recompute(true);
+  });
+  op.then(done => { if (!done.includes(id)) throw new Error("Amp didn't mark it read"); })
+    .catch(e => { S.readHold.delete(id); console.warn(TAG, "mark read failed", id, e.message); toast(`Couldn't mark ${titleOf(id)} read`, 0, null); recompute(true); });
+}
 
 export function snoozeItem(el, id, done = false) {
   if (!id) return closeTray(el);
-  const it = S.model.flatMap(i => [i, ...(i.children ?? [])]).find(i => i.id === id);
-  snoozed.set(id, { kind: it?.kind ?? null, since: it?.since ?? null, at: Date.now(), ...(done ? { done: true } : {}) });
-  saveSnoozed();
-  S.model = S.model.filter(i => i.id !== id);
+  S.ampSnoozed.add(id);
+  leaveRow(el, id, done);
+  const op = snoozeThread(id);
+  pushUndo(`${done ? "Marked done" : "Snoozed"} ${titleOf(id)}`, 0, async () => {
+    S.ampSnoozed.delete(id);
+    recompute(true);
+    const previous = await op.catch(() => undefined);
+    await unsnoozeThread(id, previous).catch(e => toast(`Couldn't unsnooze ${titleOf(id)}: ${e.message}`, 0, null));
+  });
+  op.catch(e => { S.ampSnoozed.delete(id); console.warn(TAG, "snooze failed", id, e.message); toast(`Couldn't snooze ${titleOf(id)}`, 0, null); recompute(true); });
+}
+
+
+function leaveRow(el, id, done) {
+  S.model = S.model.filter(i => i.id !== id).map(i => ({ ...i, children: (i.children ?? []).filter(c => c.id !== id) }));
   el.removeAttribute("data-thread-id");
   el.setAttribute("data-leaving", "");
   swipe.active = false;
@@ -131,7 +160,6 @@ export function snoozeItem(el, id, done = false) {
     ? [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.97)" }]
     : [{ opacity: 1, transform: "translateX(0)" }, { opacity: 0, transform: "translateX(40%)" }], { duration: done ? 200 : 260, easing: EASE, fill: "forwards" }).finished.catch(() => {});
   gone.then(() => collapse(el, 220)).then(() => render(true));
-  pushUndo(`${done ? "Marked done" : "Snoozed"} ${titleOf(id)}`, 0, () => { snoozed.delete(id); saveSnoozed(); recompute(true); });
 }
 
 export function pushUndo(text, extra, fn) {

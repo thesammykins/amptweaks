@@ -2,12 +2,22 @@
 import { KIND_ORDER, NEEDS, OLDEST_FIRST, STALL_MS, WORKING } from "./config.js";
 import { activeIdSet } from "./render/list.js";
 import { S } from "./state.js";
-import { F, cache, saveSnoozed, snoozed } from "./store.js";
+import { F, cache } from "./store.js";
 
 // ---------- classification ----------
 export const iso = t => (t ? new Date(t).toISOString() : null);
 
+// Blocked outside the agent (Amp's row says so): its runner dropped off, or your messages never reached it.
+function blocked(d, row) {
+  const status = row?.status || d?.status || "";
+  if (row?.unsent) return { kind: "stalled", verb: "Not sent", context: status, since: d?.lastUserAt ?? null };
+  if (row?.offline) return { kind: "stalled", verb: "Offline", context: d?.runner ? `${d.runner}${status ? ` · ${status}` : ""}` : status, since: d?.agentAt ?? null };
+  return null;
+}
+
 export function classify(d, row) {
+  const b = blocked(d, row);
+  if (b) return b;
   // No detail yet (cold cache, back-off): Amp's live row still tells us enough to show it.
   if (!d) {
     if (!row) return null;
@@ -97,17 +107,7 @@ S.allRepos = [];
 
 S.loading = false;
 
-// Snoozed until its state changes (a different kind or a new "since"), or a day passes.
 export const quiet = (d, row) => ({ kind: "quiet", context: row?.status || d?.status || "", since: d?.agentAt ?? d?.updatedAt ?? null });
-
-export function snoozedStill(id, c) {
-  const s = snoozed.get(id);
-  if (!s) return false;
-  if (s.kind === "parent") return Date.now() - s.at < 864e5; // a container: its family is filtered above
-  const same = c && c.kind === s.kind && (c.since ?? null) === (s.since ?? null) && (s.done || Date.now() - s.at < 864e5);
-  if (!same) { snoozed.delete(id); saveSnoozed(); }
-  return same;
-}
 
 export function buildItems(rows, ids) {
   const f = F();
@@ -122,10 +122,11 @@ export function buildItems(rows, ids) {
     if (d0?.deleted) continue;
     const row = rows.get(id);
     if (!cache.has(id) && row) S.loading = true;
-    if (f.nest && row?.root && snoozed.has(row.root)) continue; // snoozed root takes its family with it
+    // Snoozed in Amp (it wakes them itself); a snoozed root takes its family with it.
+    if (S.ampSnoozed.has(id) || (f.nest && row?.root && S.ampSnoozed.has(row.root))) continue;
+    if (S.readHold.has(id)) { if (S.readHold.get(id) > Date.now() && row?.unread !== false) continue; S.readHold.delete(id); }
     let c = classify(d0, row);
     if (!c && row?.pinned) c = quiet(d0, row);
-    if (snoozedStill(id, c)) continue;
     const d = d0 ?? { title: row?.title || "Thread" };
     // The thread you have open keeps its place (e.g. a Done you're reading) until you move on.
     if (!c && activeIds.has(id) && prev.has(id)) {
@@ -140,7 +141,6 @@ export function buildItems(rows, ids) {
   const top = new Map();
   const ensureRoot = rootId => {
     if (top.has(rootId)) return top.get(rootId);
-    if (snoozed.has(rootId) && snoozed.get(rootId).kind === "parent") return null;
     const r = rows.get(rootId);
     const d = cache.get(rootId)?.d ?? { title: r?.title || "Thread" };
     const item = active.get(rootId) ?? { id: rootId, d, href: r?.href ?? `/threads/${rootId}`, inAmp: !!r, space: !!r?.space, spaceColor: r?.spaceColor, pinned: !!r?.pinned, kind: "parent", since: d.updatedAt };

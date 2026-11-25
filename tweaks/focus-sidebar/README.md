@@ -6,19 +6,21 @@ Swaps Amp's thread list for just the threads that need you and the ones still wo
 | --- | --- |
 | <img src="images/before.png" width="360" alt="Amp's thread list: every space, thread and sub-thread"> | <img src="images/after.png" width="360" alt="The focus sidebar: pinned, spaces, working and needs-you sections"> |
 
-Threads are grouped by Status, Project or Day, with a filter menu at the top right for what each view shows. Pinned threads (Amp's own pins) stay at the top of Status even when idle, and Amp's search shows its matches in the same rows. Sub-threads and Spaces nest under their parent, and a family's finished threads sit under "N finished".
+Threads are grouped by Status, Project or Day, with a filter menu at the top right for what each view shows. Pinned threads (Amp's own pins) stay at the top of Status even when idle, and Amp's search shows its matches in the same rows. Sub-threads and Spaces nest under the thread that started them (from Amp's own lineage, so a sub-thread of a sub-thread keeps its place even where Amp's list flattens it), and a family's finished threads sit under "N finished".
 
 | Grouped by project | Filters |
 | --- | --- |
 | <img src="images/project.png" width="360" alt="Threads grouped by repository"> | <img src="images/menu.png" width="360" alt="The filter menu"> |
 
-- Hover a row for pin, archive and Amp's own menu (plus Mark done on an Ask, which hides it until the thread changes, and Retry on a failure), or swipe left with two fingers (a full swipe archives). Swipe right to snooze until something changes.
+- Hover a row for pin, archive and Amp's own menu (plus Mark done on an Ask or a finished thread, and Retry on a failure). The buttons slide out from behind a family's sub-thread button, which stays where it is. Or swipe left with two fingers (a full swipe archives). Swipe right to snooze.
+- Snooze is Amp's own "Snooze Until I'm Needed": Amp brings the thread back when it has a new message or needs an approval, and your other devices agree. Mark done marks a finished thread read in Amp, or snoozes an Ask until it's needed.
+- A thread whose runner has gone offline, or whose messages didn't send, shows under Needs you.
 
   <img src="images/hover.png" width="352" alt="A failed thread on hover, with Retry, pin, menu and archive">
 
 - Right-click or long-press opens Amp's menu for that thread.
 - ⌃⌘A archives the open thread and moves to the next one. ⌘Z undoes.
-- Arrow keys move between rows, → and ← open and close families, Enter opens, E archives, S snoozes, D marks an Ask done, P pins.
+- Arrow keys move between rows, → and ← open and close families, Enter opens, E archives, S snoozes, D marks an Ask or a finished thread done, P pins.
 
 While it's on, it turns off Amp's own sidebar filters (time range, hide running, needs-you only), since they'd hide threads from it. A project or automation filter set in Amp still applies; clear it from Amp's filter menu with the sidebar off.
 

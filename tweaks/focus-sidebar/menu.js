@@ -4,7 +4,7 @@ import { CHECK, DETAILS, KIND_LABEL, MENU_KEY, MODES } from "./config.js";
 import { recompute } from "./live.js";
 import { esc } from "./render/dom-util.js";
 import { S } from "./state.js";
-import { F, filtersAreDefault, freshFilters, prefs, saveSnoozed, snoozed, store } from "./store.js";
+import { F, filtersAreDefault, freshFilters, prefs, store } from "./store.js";
 
 S.menuCls = store.get(MENU_KEY, null);
 
@@ -36,7 +36,7 @@ export function menuHTML() {
   const details = section("Row details", `<div data-grid>${Object.entries(DETAILS).map(([k, t]) => check(`show:${k}`, prefs.display[k], t)).join("")}</div>`
     + `<div data-seg-row><span>Density</span>${seg([["comfortable", "Comfortable"], ["compact", "Compact"]], prefs.display.density, "density:")}</div>`
     + `<div data-seg-row><span>When narrow</span>${seg([["fade", "Fade details"], ["all", "Wrap"]], prefs.display.fit, "fit:")}</div>`);
-  const footer = `<div data-menu-footer>${snoozed.size ? action("unsnooze", "Show snoozed and done", String(snoozed.size)) : ""}${action("archive-done", "Archive all done", doneCount ? String(doneCount) : "")}</div>`;
+  const footer = `<div data-menu-footer>${action("archive-done", "Archive all done", doneCount ? String(doneCount) : "")}</div>`;
   return `<div data-menu-top><span data-menu-title>${esc(MODES[prefs.mode])} view</span>${filtersAreDefault() ? "" : `<button type="button" data-f="reset" data-menu-reset>Reset</button>`}</div>`
     + `<div data-menu-body>${[...lead, threads].join("")}${details}</div>` + footer;
 }
@@ -52,7 +52,6 @@ export function applyFilter(key) {
   else if (key.startsWith("age:")) f.age = Number(key.slice(4));
   else if (key.startsWith("repo:")) { const r = key.slice(5); f.hidden = f.hidden.includes(r) ? f.hidden.filter(x => x !== r) : [...f.hidden, r]; }
   else if (key === "reset") prefs.filtersByView[prefs.mode] = freshFilters(prefs.mode);
-  else if (key === "unsnooze") { snoozed.clear(); saveSnoozed(); }
   store.set("focus.filtersByView", prefs.filtersByView);
   store.set("focus.display", prefs.display);
   recompute(true);

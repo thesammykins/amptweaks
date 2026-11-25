@@ -1,6 +1,9 @@
-// Amp adapter (act side): navigation, Amp's context menu, pin and retry, all through Amp's own (hidden) controls.
+// Amp adapter (act side): navigation, Amp's context menu, pin and retry through Amp's own (hidden) controls;
+// snooze and read state through Amp's own commands.
 import { titleOf, toast } from "../actions.js";
+import { S } from "../state.js";
 import { ampRow } from "./dom.js";
+import { command } from "./remote.js";
 
 // Navigation goes through Amp's own row so Space threads open in their Space (their href alone 500s).
 // Threads outside Amp's list go through a throwaway link so SvelteKit's router still handles them.
@@ -67,3 +70,24 @@ export async function openAmpMenu(id, x, y) {
   target.dispatchEvent(new MouseEvent("contextmenu", o));
   return !!document.querySelector('[role="menu"]');
 }
+
+// ---------- Amp's own snooze and read state (synced: Amp's list, other windows and devices agree) ----------
+// "Until I'm needed": Amp wakes it on a new message or an approval. Returns what to restore for Undo.
+export async function snoozeThread(id) {
+  const r = await command("snoozeThreadCommand", { threadID: id, choice: "next_message" });
+  S.ampSnoozed.add(id);
+  return r?.previous ?? null;
+}
+
+export async function unsnoozeThread(id, previous) {
+  // Amp's Undo restores the snooze it replaced; with nothing to restore, it's just switched off.
+  await command("snoozeThreadCommand", previous == null ? { threadID: id, choice: "off" } : { threadID: id, restore: previous });
+  S.ampSnoozed.delete(id);
+}
+
+export async function markRead(ids) {
+  const r = await command("markThreadsReadCommand", { threadIDs: ids });
+  return r?.updatedThreadIDs ?? [];
+}
+
+export const markUnread = id => command("markThreadUnreadCommand", { threadID: id });

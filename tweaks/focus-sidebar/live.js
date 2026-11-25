@@ -1,7 +1,8 @@
 // The loop: watch Amp's sidebar for changes, refresh on a timer, recompute the model, render; start().
 import { archive, archiveAllDone, archiveAndAdvance, archiveItems, dismissed, findItem, undoLast, undoStack } from "./actions.js";
 import { navigate, openAmpMenu } from "./amp/actions.js";
-import { ampSearch, missingHooks, readAmp, readRow } from "./amp/dom.js";
+import { ampSearch, linkFamilies, missingHooks, readAmp, readRow } from "./amp/dom.js";
+import { refreshLineage } from "./amp/list.js";
 import { ampFilters, clearAmpFilters } from "./amp/view-state.js";
 import { RECENT_MS } from "./config.js";
 import { computeMe, due, fetchMany, fetchOne, loadCli } from "./data.js";
@@ -66,6 +67,7 @@ export async function refresh(forceRender = false) {
   try {
     // The live observer keeps `rows` current; a full re-read is a once-a-minute safety net.
     if (!S.rows.size || Date.now() - S.lastFullRead > 60_000) { S.rows = readAmp(); S.lastFullRead = Date.now(); }
+    if (await refreshLineage()) linkFamilies(S.rows);
     sweepDismissed();
     const updatedById = new Map(S.cli.map(t => [t.id, t.updated]));
     if (!S.me) {
@@ -130,7 +132,8 @@ export async function liveTick() {
   if (full) now = readAmp();
   else {
     now = new Map(S.rows);
-    for (const a of touchedNow) if (a.isConnected) { const r = readRow(a); r.root = S.rows.get(a.dataset.sidebarThreadId)?.root ?? null; now.set(a.dataset.sidebarThreadId, r); }
+    for (const a of touchedNow) if (a.isConnected) now.set(a.dataset.sidebarThreadId, readRow(a));
+    linkFamilies(now);
   }
   const changed = [];
   const flipped = [];
@@ -218,7 +221,8 @@ export function start() {
   window.__ampFocus = { perf, archive, archiveById, archiveAllDone, archiveAndAdvance, undoLast, refresh, openAmpMenu, navigate, get model() { return S.model; }, setMode(m) { prefs.mode = m; recompute(true); } };
 
   (async () => {
-    await loadCli();
+    await Promise.all([loadCli(), refreshLineage(true)]);
+    linkFamilies(S.rows);
     await refresh(true);
     setInterval(loadCli, 30_000);
     setInterval(refresh, 5_000);
@@ -226,6 +230,7 @@ export function start() {
       const r = sel => { const e = document.querySelector(sel); return e ? Math.round(e.getBoundingClientRect().left) : null; };
       const report = {
         url: location.href, missing: missingHooks(), ampFilters: ampFilters(), me: !!S.me, cached: cache.size, mode: prefs.mode, loading: S.loading,
+        lineage: S.lineage.size, ampSnoozed: S.ampSnoozed.size, nestedByLineage: [...S.rows.values()].filter(r => r.parent && r.parent !== r.domParent).length,
         top: S.model.length,
         counts: S.model.reduce((m, i) => ((m[i.kind] = (m[i.kind] ?? 0) + 1), m), {}),
         families: S.model.filter(i => i.children.length).map(i => ({ title: i.d.title?.slice(0, 40), space: !!i.space, lead: i.lead, children: i.children.map(c => c.kind), finished: i.finished })),

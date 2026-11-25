@@ -8,9 +8,9 @@ import { prefs } from "../store.js";
 
 export function parts(row) {
   if (row._p) return row._p;
-  row.innerHTML = `<span data-icon><span data-icon-art></span><span data-badge></span></span><span data-title></span><span data-trail><span data-time></span><span data-row-actions></span></span><span data-context hidden></span><span data-meta hidden></span>`;
+  row.innerHTML = `<span data-icon><span data-icon-art></span><span data-badge></span></span><span data-title></span><span data-trail><span data-time></span><span data-anchor><span data-row-actions><span data-strip></span></span></span></span><span data-context hidden></span><span data-meta hidden></span>`;
   const q = s => row.querySelector(s);
-  row._p = { icon: q("[data-icon]"), art: q("[data-icon-art]"), title: q("[data-title]"), trail: q("[data-trail]"), time: q("[data-time]"), actions: q("[data-row-actions]"), context: q("[data-context]"), meta: q("[data-meta]"), toggle: null };
+  row._p = { icon: q("[data-icon]"), art: q("[data-icon-art]"), title: q("[data-title]"), trail: q("[data-trail]"), time: q("[data-time]"), anchor: q("[data-anchor]"), actions: q("[data-strip]"), context: q("[data-context]"), meta: q("[data-meta]"), toggle: null };
   return row._p;
 }
 
@@ -61,7 +61,7 @@ export function applyRow(row, it, opts) {
       p.toggle.tabIndex = -1; // →/← expand and collapse from the row
       p.toggle.setAttribute("data-family-toggle", "");
       p.toggle.innerHTML = ICON.chevron;
-      p.trail.insertBefore(p.toggle, p.time);
+      p.anchor.appendChild(p.toggle);
     }
     if (p.toggle.className !== opts.cls.toggle) p.toggle.className = opts.cls.toggle;
     const noun = it.space ? "thread" : "sub-thread";
@@ -78,14 +78,14 @@ export function applyRow(row, it, opts) {
 
   // Failed: a small "Retry" at the end of the line, shown on hover; it retries through Amp's own thread view.
   const retryLabel = it.kind === "failed" ? ` <button type="button" tabindex="-1" data-act="retry" data-retry-label>Retry</button>` : "";
-  const context = !show.context ? "" : it.kind === "parent" ? esc(family) : it.context ? `${it.verb ? `<b>${esc(it.verb)}</b> ` : ""}${esc(it.context)}${retryLabel}` : "";
+  const context = !show.context ? "" : it.kind === "parent" ? esc(family) : it.context || it.verb ? `${it.verb ? `<b>${esc(it.verb)}</b> ` : ""}${esc(it.context ?? "")}${retryLabel}` : "";
   setHTML(p.context, context);
   p.context.hidden = !context;
   const meta = metaHTML(it, opts, family);
   setHTML(p.meta, meta);
   p.meta.hidden = !meta;
   setText(p.time, ago(it.since));
-  // Hover actions live in the row's trail: they open to the right of the toggle and push it left.
+  // Hover actions slide out leftwards from behind the toggle (or the row's edge); the toggle never moves.
   const acts = [
     it.kind === "failed" ? ["retry", "Retry", ICON.retry] : null,
     it.kind === "asking" ? ["done", "Mark done", ICON.done] : null,
@@ -95,13 +95,13 @@ export function applyRow(row, it, opts) {
   ].filter(Boolean);
   setHTML(p.actions, acts.map(([a, l, i]) => `<button type="button" tabindex="-1" data-act="${a}" aria-label="${l}" title="${l}">${i}</button>`).join(""));
   if (row.dataset.acts !== String(acts.length)) row.dataset.acts = acts.length;
-  // The toggle slides left by (actions width - time width); measure the time text without a layout read.
+  // The title's tail fades by however far the actions reach past the time; measure the time text without a layout read.
   const tw = `${timeWidth(p.time.textContent)}px`;
   if (row._tw !== tw) {
     row.style.setProperty("--time-w", tw);
     row._tw = tw;
   }
-  // Same as CSS --shift (actions width + 4px gap - time width - the trail's 5px gap), in px for the hover-zone check.
+  // Same as CSS --shift (actions width + 4px gap - time width - the trail's 5px gap), in px.
   const actsPx = acts.length * 24 - 2;
   const shiftPx = `${Math.max(0, actsPx - 1 - parseFloat(tw))}px`;
   if (row._sp !== shiftPx) { row.style.setProperty("--shift-px", shiftPx); row._sp = shiftPx; }

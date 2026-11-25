@@ -4,6 +4,7 @@
 //   Amp sidebar DOM      → thread set, families, unread/running/error signals (live), hrefs, navigation, context menu
 //   threads.json (CLI)   → recent threads + `updated` (change detector, excludes archived)
 //   /api/threads/:id     → state, status message, model, working tree (cached across reloads)
+//   Amp's remote queries → thread lineage (families) and snoozes, the same ones Amp's sidebar uses
 // Behaviour stays Amp's: clicks, the right-click menu and component styling all come from Amp's own rows.
 // Module map: see AGENTS.md ("Focus sidebar modules").
 import { start } from "./live.js";

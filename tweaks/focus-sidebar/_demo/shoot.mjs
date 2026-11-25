@@ -36,7 +36,7 @@ try {
     if (shot.style) await evaluate(`document.head.insertAdjacentHTML("beforeend", ${JSON.stringify(`<style>${shot.style}</style>`)})`);
     if (shot.hover) {
       const r = await rect(shot.hover);
-      // Come in from the right edge, like a pointer moving onto the row: the row's buttons show once it's past the toggle.
+      // Come in from the right edge, like a pointer moving onto the row.
       for (const x of [r.x + r.width - 4, r.x + r.width - 40, r.x + r.width * 0.6]) { await mouse("mouseMoved", x, r.y + r.height / 2); await sleep(60); }
       await sleep(500);
     }

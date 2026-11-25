@@ -13,6 +13,8 @@ export const AMP_HOOKS = {
 export const missingHooks = () => Object.entries(AMP_HOOKS).filter(([, sel]) => !document.querySelector(sel)).map(([name]) => name);
 
 // ---------- Amp DOM: rows, families, live signals, icons ----------
+import { S } from "../state.js";
+
 export const ampRow = id => document.querySelector(`a[data-sidebar-thread-id="${CSS.escape(id)}"]`);
 
 export const parentOf = a => a.parentElement?.closest("[data-sidebar-subthreads-of]")?.dataset.sidebarSubthreadsOf ?? null;
@@ -37,19 +39,24 @@ export function readRow(a) {
   const running = !!a.querySelector("[data-thread-row-running-icon]");
   const error = !!a.querySelector("[data-thread-row-error]");
   const status = a.querySelector("[data-thread-row-status-line]")?.textContent.trim() ?? "";
+  // Blocked on something outside the agent: its runner dropped off, or your messages haven't reached it.
+  const offline = !!a.querySelector("[data-thread-row-waiting-for-runner]");
+  const unsent = !!a.querySelector("[data-thread-row-unsent]");
   captureIcon(id, a);
   return {
     href: a.getAttribute("href"),
     title: a.querySelector("[data-title-text]")?.textContent.trim() ?? "",
-    unread, running, error, status,
+    unread, running, error, status, offline, unsent,
     space: !!a.querySelector("[data-thread-row-space-icon]"),
     spaceColor: a.querySelector("[data-space-color]")?.dataset.spaceColor ?? null,
     // Spawned by another thread (orchestrated sub-thread): its finished result is reviewed via the parent.
     spawned: a.querySelector("[data-thread-row-origin-badge]")?.dataset.threadRowOriginBadge === "thread",
-    parent: parentOf(a),
+    domParent: parentOf(a),
+    parent: null,
+    root: null,
     pinned: a.hasAttribute("data-thread-row-pinned"),
     flags: `${unread}|${running}|${error}`, // state changes → refetch detail
-    sig: `${unread}|${running}|${error}|${status}|${a.hasAttribute("data-thread-row-pinned")}`, // any visible change → re-render
+    sig: `${unread}|${running}|${error}|${offline}|${unsent}|${status}|${a.hasAttribute("data-thread-row-pinned")}`, // any visible change → re-render
   };
 }
 
@@ -58,9 +65,22 @@ export function readAmp() {
   for (const a of document.querySelectorAll("a[data-sidebar-thread-id]")) {
     rows.set(a.dataset.sidebarThreadId, readRow(a));
   }
+  return linkFamilies(rows);
+}
+
+// Parent = the nearest ancestor Amp lists (from Amp's lineage, which keeps nesting the DOM flattens), else the DOM's.
+// Root = the top of that chain. Run again whenever the rows or the lineage change.
+export function linkFamilies(rows) {
+  for (const [id, r] of rows) {
+    const chain = S.lineage?.get(id);
+    const p = chain?.find(x => x !== id && rows.has(x));
+    r.parent = p ?? r.domParent ?? null;
+    if (r.parent === id) r.parent = null;
+  }
   for (const [id, r] of rows) {
     let root = r.parent;
-    for (let hops = 0; root && rows.get(root)?.parent && hops < 6; hops++) root = rows.get(root).parent;
+    const seen = new Set([id]);
+    while (root && rows.get(root)?.parent && !seen.has(root)) { seen.add(root); root = rows.get(root).parent; }
     r.root = root && root !== id ? root : null;
   }
   return rows;

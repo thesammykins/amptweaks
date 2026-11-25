@@ -28,6 +28,9 @@ export const S = {
   liveFirst: undefined,
   touched: undefined,
   structuralChange: undefined,
-  revealRow: undefined,
   searchFlip: undefined,
+  lineage: undefined,
+  ampSnoozed: undefined,
+  listAt: undefined,
+  readHold: undefined,
 };

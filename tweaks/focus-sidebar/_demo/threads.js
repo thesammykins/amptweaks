@@ -1,5 +1,8 @@
 // Made-up threads for the demo page. Times are minutes ago, so the page always looks current.
 // state: working | idle | error | approve | asking | done (unread result) | stalled
+// offline: its runner dropped off · unsent: your messages haven't reached it
+// Nested kids: Amp's DOM flattens them under the root (as the real sidebar does); Amp's API keeps the real parent.
+// apiParent: a thread Amp's DOM shows at the top level although Amp's API says it came from another thread.
 export const SPACES = [
   {
     id: "S-mobile", title: "Mobile app", color: "#c9a227", ago: 40,
@@ -25,13 +28,16 @@ export const THREADS = [
   {
     id: "T-billing", title: "Migrate billing to the v2 API", state: "working", status: "Editing src/billing/invoice.ts", repo: "api", branch: "billing-v2", model: "claude-opus-5-5", effort: "high", ago: 3, active: true,
     kids: [
-      { id: "T-webhooks", title: "Update webhook handlers", state: "working", status: "Running the webhook tests", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 2 },
+      { id: "T-webhooks", title: "Update webhook handlers", state: "working", status: "Running the webhook tests", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 2,
+        kids: [{ id: "T-retries", title: "Retry failed webhook deliveries", state: "asking", status: "Cap retries at 5 or 10?", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 4 }] },
       { id: "T-backfill", title: "Backfill invoice IDs", state: "error", error: "Rate limited by the payments provider. Try again later.", repo: "api", branch: "billing-v2", model: "claude-sonnet-5-5", ago: 14 },
       { id: "T-notes", title: "Write migration notes", state: "idle", status: "Wrote MIGRATION.md", ago: 30 },
       { id: "T-types", title: "Generate API types", state: "idle", status: "Generated 48 types", ago: 45 },
     ],
   },
   { id: "T-ci", title: "Speed up the CI cache", state: "working", status: "Comparing cache keys across runs", repo: "infra", model: "gpt-6.1-sol", effort: "medium", ago: 12 },
+  { id: "T-ci-bench", title: "Benchmark the new cache keys", state: "working", status: "Timing 20 cold runs", repo: "infra", model: "claude-sonnet-5-5", ago: 9, apiParent: "T-ci", offline: true },
+  { id: "T-flags", title: "Clean up feature flags", state: "idle", status: "Removed 12 stale flags", repo: "web", model: "claude-sonnet-5-5", ago: 70, unsent: true },
   { id: "T-leak", title: "Investigate memory leak in worker", state: "asking", status: "Is it OK to restart the staging queue?", repo: "api", model: "claude-opus-5-5", effort: "high", ago: 95 },
   { id: "T-csv", title: "Add CSV export to reports", state: "error", error: "You've reached your usage limit.", repo: "web", model: "claude-sonnet-5-5", ago: 140 },
   { id: "T-pg", title: "Upgrade to Postgres 17", state: "approve", status: "Run pg_upgrade --check on staging?", repo: "infra", model: "claude-opus-5-5", effort: "high", ago: 60 },
