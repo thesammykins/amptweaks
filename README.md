@@ -40,7 +40,9 @@ What's new in the menu shows each change as a card, like Amp's own news card, wi
 | --- | --- |
 | <img src="tweaks/tweak-settings/images/menu.png" width="300" alt="The Tweaks menu, grouped into Works in Amp and Uses this Mac"> | <img src="tweaks/tweak-settings/images/news.gif" width="300" alt="The What's new card paging through changes and turning a tweak on"> |
 
-### Puck (`puck`)
+### Puck (`puck`) — work in progress
+
+**Partly broken and still changing. Don't rely on it yet.**
 
 Amp's Call Puck button on every thread's message box shows your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it), watching the pointer, with Amp's unread dot. Clicking it is Amp's own call. Hovering it shows Puck's latest line, with **Talk** (the call) and **Open Puck** (Amp's Puck window).
 
