@@ -1,1 +1,1 @@
-{ "title": "Quick replies", "summary": "Folds suggested replies into one chip, with the agent's question at the top.", "needs": "amp" }
+{ "title": "Quick replies", "summary": "Folds suggested replies into one chip, with the agent's question at the top.", "needs": "amp", "frames": true }

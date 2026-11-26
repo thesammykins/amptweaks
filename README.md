@@ -92,6 +92,14 @@ When Amp can't resume a thread because this Mac's runner doesn't serve its folde
 
 Swaps Amp's thread list for just the threads that need you and the ones still working. Screenshots: [tweaks/focus-sidebar](tweaks/focus-sidebar/README.md).
 
+### Thread tabs (`thread-tabs`)
+
+Middle-click a thread, in Amp's sidebar or the focus sidebar, to open it as a tab after the one you're in, without leaving it. The tabs sit in Amp's own tab row, beside Amp's tab for the thread you're in, and that one keeps its place when you switch. Opening a thread from the sidebar replaces the tab you're in, as in a browser. Middle-click or × closes a tab, and right-click opens Amp's menu for that thread. A thread that belongs to a Space opens in the Space, which has its own tabs. Each Amp window keeps its own tabs.
+
+**Split with ⌥ (experimental)**, in the Tweaks menu: ⌥-middle-click a thread, or ⌥-click a tab, to open it beside the one you're in. The split is a second copy of Amp, so it uses more memory.
+
+<img src="tweaks/thread-tabs/images/open.gif" width="500" alt="Two threads middle-clicked into tabs, one opened, another closed">
+
 ## Your own tweaks
 
 Put `.css` and `.js` files in `~/.amp-tweaks`, either loose or in a folder per tweak (`~/.amp-tweaks/my-tweak/`). They load on every Amp page and reload when you save. Anything starting with `_` is skipped, and a folder with the same name as a bundled tweak replaces it. A folder with an `index.js` loads as an ES module, so it can split into files with `import`.

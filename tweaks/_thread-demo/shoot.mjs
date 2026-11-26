@@ -28,6 +28,11 @@ const rail = async () => ({ x: 0, y: H - 300, width: 300, height: 300 });
 const news = async () => ({ x: 0, y: H - 240, width: 380, height: 240 });
 
 const centre = r => [r.x + r.width / 2, r.y + r.height / 2];
+const tabRow = async () => ({ x: 0, y: 0, width: 1000, height: 190 });
+const row = n => `.amp-list a:nth-child(${n})`;
+const middleClick = async (h, [x, y]) => {
+  for (const type of ["mousePressed", "mouseReleased"]) await h.page("Input.dispatchMouseEvent", { type, x, y, button: "middle", buttons: type === "mousePressed" ? 4 : 0, clickCount: 1 });
+};
 
 const SHOTS = {
   "quick-replies/before.png": { query: "tweaks=off", frame: bottom },
@@ -77,6 +82,27 @@ const SHOTS = {
     act: async h => { const b = centre(await h.rect("[data-amp-tweaks-settings] button")); await h.glide(REST, b, 200); await h.click(...b); await sleep(500); },
   },
   // What's new opens on its own when there's something unseen; thread-outline starts off so its card can turn it on.
+  "thread-tabs/tabs.png": {
+    query: "tweaks=thread-tabs&sidebar", frame: tabRow,
+    act: async h => {
+      for (const n of [2, 3]) { const r = centre(await h.rect(row(n))); await h.glide(REST, r, 150); await middleClick(h, r); await sleep(200); }
+      await h.glide(REST, centre(await h.rect("[data-tt-tab]")), 200);
+      await sleep(400);
+    },
+  },
+  "thread-tabs/open.gif": {
+    query: "tweaks=thread-tabs&sidebar", frame: tabRow,
+    act: async h => {
+      let at = [700, 150];
+      for (const n of [2, 3]) { const r = centre(await h.rect(row(n))); await h.glide(at, r, 450); await sleep(250); await middleClick(h, r); await sleep(600); at = r; }
+      const tab = centre(await h.rect('[data-tt-tab][data-id$="02"] [data-tt-open]'));
+      await h.glide(at, tab, 500); await sleep(300);
+      await h.click(...tab); await sleep(900);
+      const close = centre(await h.rect('[data-tt-tab][data-id$="03"] [data-tt-close]'));
+      await h.glide(tab, close, 400); await sleep(400);
+      await h.click(...close); await sleep(900);
+    },
+  },
   "tweak-settings/news.png": { query: "tweaks=tweak-settings", frame: news, act: async () => sleep(600) },
   "tweak-settings/news.gif": {
     query: "tweaks=tweak-settings&off=thread-outline", frame: news,

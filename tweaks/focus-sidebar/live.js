@@ -1,6 +1,6 @@
 // The loop: watch Amp's sidebar for changes, refresh on a timer, recompute the model, render; start().
 import { archive, archiveAllDone, archiveAndAdvance, archiveItems, dismissed, findItem, undoLast, undoStack } from "./actions.js";
-import { navigate, openAmpMenu } from "./amp/actions.js";
+import { navigate, openAmpMenu } from "./amp/nav.js";
 import { ampSearch, linkFamilies, missingHooks, readAmp, readRow } from "./amp/dom.js";
 import { refreshLineage } from "./amp/list.js";
 import { ampFilters, clearAmpFilters } from "./amp/view-state.js";

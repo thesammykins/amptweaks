@@ -13,6 +13,7 @@
   --color-popover-foreground: #f7f5fd;
   --color-border: #a592e51f;
   --color-ring: #876ada;
+  --color-terminal-bright-blue: #5fa8d3;
   --color-warning: #d6a038;
   --color-success: #34d399;
   --color-destructive: #f87171;
@@ -48,7 +49,21 @@ svg { display: block; }
 /* ---------- the thread pane ---------- */
 .pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tabbar { flex: none; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px; color: var(--color-foreground); font-size: 12px; background: #120f1c; }
-.tabbar .orb { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #8b7cf6; }
+.tabbar .orb { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #8b7cf6; }
+/* Amp's tab row: its tab for the conversation, in a scrolling row the thread tabs share. */
+.tabbar { padding: 0 6px; }
+.tabbar [data-thread-file-tab-list], .tabbar [role="tablist"] { display: flex; min-width: 0; flex: 1; height: 100%; }
+.thread-scrollable-tabs-scroll { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.agent-tab { display: flex; flex-shrink: 0; align-items: center; max-width: 13rem; height: 28px; border-radius: 6px; background: #1f1a2e; }
+.agent-tab button { display: flex; align-items: center; gap: 6px; min-width: 0; height: 100%; padding: 0 34px 0 8px; font-size: 12px; font-weight: 500; color: var(--color-foreground); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ?sidebar: Amp's thread list. */
+.amp-list { flex: none; width: 240px; display: flex; flex-direction: column; gap: 2px; padding: 44px 8px 8px; border-right: 1px solid var(--color-border); background: #110e1b; }
+.amp-list a { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 6px; color: var(--color-muted-foreground); text-decoration: none; font-size: 12.5px; }
+.amp-list a[aria-current] { background: #1f1a2e; color: var(--color-foreground); }
+.amp-list [data-title-text] { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-thread-row-unread-badge] { width: 6px; height: 6px; border-radius: 50%; background: #5fa8d3; }
+.opacity-0 { opacity: 0; }
 .transcript { position: relative; flex: 1; min-height: 0; }
 [data-thread-transcript-scroll] { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; }
 [data-transcript-entry-list] { max-width: var(--thread-column-max-width); margin: 0 auto; padding: 20px 16px 0; display: grid; gap: 14px; }

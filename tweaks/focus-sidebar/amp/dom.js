@@ -15,8 +15,6 @@ export const missingHooks = () => Object.entries(AMP_HOOKS).filter(([, sel]) => 
 // ---------- Amp DOM: rows, families, live signals, icons ----------
 import { S } from "../state.js";
 
-export const ampRow = id => document.querySelector(`a[data-sidebar-thread-id="${CSS.escape(id)}"]`);
-
 export const parentOf = a => a.parentElement?.closest("[data-sidebar-subthreads-of]")?.dataset.sidebarSubthreadsOf ?? null;
 
 // Amp's own thread icon, captured once per thread. Running threads show a WebGL canvas, so keep the static one.

@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-26-thread-tabs",
+    "date": "2026-11-26",
+    "title": "Thread tabs",
+    "body": "Middle-click a thread to open it as a tab beside the one you're in, in Amp's own tab row. Middle-click or × closes a tab, and right-click opens Amp's menu for it. Turn on Split with ⌥ to open a thread beside the one you're in (experimental, and it uses more memory).",
+    "tweak": "thread-tabs"
+  },
+  {
     "id": "2026-11-26-focus-warm",
     "date": "2026-11-26",
     "title": "Threads open faster from the sidebar",

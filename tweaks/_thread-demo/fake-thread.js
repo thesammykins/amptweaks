@@ -1,8 +1,9 @@
 // A stand-in for Amp's thread pane and left rail, filled with a made-up thread, that runs the real thread tweaks.
 // Serve the repo root (python3 -m http.server) and open /tweaks/_thread-demo/.
 //   ?tweaks=quick-replies,thread-outline  only those (default: all of them)   ?tweaks=off  Amp as it is
+//   ?sidebar  Amp's thread list beside the rail, with a few more made-up threads to open (for thread-tabs)
 // _thread-demo/shoot.mjs uses it for the README screenshots and clips, so nothing personal ends up in them.
-const ALL = ["calm-reading", "clickable-paths", "polish", "quick-replies", "runner-folders", "thread-outline", "tweak-settings"];
+const ALL = ["calm-reading", "clickable-paths", "polish", "quick-replies", "runner-folders", "thread-outline", "thread-tabs", "tweak-settings"];
 const THREAD = "T-0000b111-0000-4000-8000-000000000001";
 const params = new URLSearchParams(location.search);
 const wanted = params.get("tweaks") === "off" ? [] : (params.get("tweaks")?.split(",") ?? ALL);
@@ -33,6 +34,8 @@ window.fetch = async (input, init = {}) => {
   if (p === "/__amp-tweaks/changes.json") return realFetch("/changes.json");
   if (p === "/__amp-tweaks/act/tweak") { tweakState[url.searchParams.get("name")] = url.searchParams.get("on") === "1"; return json([]); }
   if (p.startsWith("/__amp-tweaks/")) return new Response(null, { status: 204 });
+  // Amp's own remote functions (devalue): an empty thread list, so no thread counts as a Space's.
+  if (p.startsWith("/_app/remote/")) return json({ type: "result", data: JSON.stringify([{ _: 1 }, { recentThreads: 2 }, []]) });
   return realFetch(input, init);
 };
 
@@ -48,6 +51,14 @@ const ENTRIES = [
   ["assistant", `<p class="run">Added the billing_v2 flag and wired it through checkout · 4 minutes</p><h3>What's behind the flag</h3><ul><li>The v2 invoice client and its webhooks</li><li>The new invoice email from <code>emails/invoice.tsx</code></li><li>Nothing else: refunds and payouts stay on v1</li></ul><h3>Turning it on</h3><p>Set <code>BILLING_V2=1</code> for a workspace, or flip it for everyone from the admin page. Turning it off falls back to v1 on the next request.</p>${gallery([["Admin flag page", "#d6a038", "flag"], ["API team workspace", "#e0739a", "workspace"], ["Error rate, last hour", "#59c08a", "0.02%"]])}<p>Should I turn the flag on for the API team's workspace now?</p>`],
 ];
 const REPLIES = ["Yes, turn it on for the API team's workspace", "Not yet, write the rollout notes for them first", "Turn it on for everyone, we're ready"];
+// ?sidebar: other threads in Amp's list. Opening one swaps the title in Amp's tab, which is all the tab tweaks read.
+const OTHERS = [
+  ["T-0000b111-0000-4000-8000-000000000002", "Fix the flaky checkout test", false],
+  ["T-0000b111-0000-4000-8000-000000000003", "Draft rollout notes for the API team", true],
+  ["T-0000b111-0000-4000-8000-000000000004", "Upgrade Postgres to 17", false],
+  ["T-0000b111-0000-4000-8000-000000000005", "Speed up the invoice export", false],
+];
+const TITLE = "Migrate billing to the v2 API";
 const short = s => (s.length > 26 ? `${s.slice(0, 24).trimEnd()}…` : s);
 
 const I = {
@@ -68,8 +79,11 @@ document.body.innerHTML = `
     <div data-rail-more-area></div>
     <div data-rail-footer><ul data-sidebar="menu"></ul><span class="amp-avatar">D</span></div>
   </nav>
-  <main class="pane">
-    <div class="tabbar"><span class="orb"></span>Migrate billing to the v2 API</div>
+  ${params.has("sidebar") ? `<aside class="amp-list">${[[THREAD, TITLE, false], ...OTHERS].map(([id, title, unread]) => `<a data-sidebar-thread-id="${id}" href="/threads/${id}"${id === THREAD ? ' aria-current="page"' : ""}><span data-title-text>${title}</span><span data-thread-row-unread-badge class="${unread ? "" : "opacity-0"}"></span></a>`).join("")}</aside>` : ""}
+  <main class="pane" data-agent-pane>
+    <div class="tabbar" data-pane-tab-strip><div data-thread-file-tab-list><div role="tablist"><div class="thread-scrollable-tabs-scroll">
+      <div data-card-tab="agent" class="agent-tab"><button type="button" role="tab" aria-selected="true"><span class="orb"></span><span class="truncate" data-demo-title>${TITLE}</span></button></div>
+    </div></div></div></div>
     <div class="transcript">
       <div data-thread-transcript-scroll data-thread-id="${THREAD}">
         <div data-transcript-entry-list>
@@ -108,6 +122,15 @@ for (const b of document.querySelectorAll("[data-suggested-quick-action]")) {
   b.addEventListener("pointerleave", () => { b.style.opacity = ""; pop?.remove(); });
 }
 
+// Amp's rows open their thread in place (SvelteKit's router): new address, new title in Amp's tab.
+for (const a of document.querySelectorAll("a[data-sidebar-thread-id]")) a.addEventListener("click", e => {
+  if (e.button !== 0 || e.metaKey || e.ctrlKey) return;
+  e.preventDefault();
+  history.pushState(null, "", `${a.getAttribute("href")}${location.search}`);
+  document.querySelector("[data-demo-title]").textContent = a.querySelector("[data-title-text]").textContent;
+  document.querySelectorAll("a[data-sidebar-thread-id]").forEach(r => r.toggleAttribute("aria-current", r === a));
+});
+
 // The tweaks read /threads/<id> from the address bar, like they do in Amp.
 history.replaceState(null, "", `/threads/${THREAD}${location.search}`);
 // Amp opens a thread at its end; wait for the gallery images so "the end" is where it stays.
@@ -120,9 +143,12 @@ if (params.has("notice")) document.querySelector("[data-transcript-entry-list]")
 
 const STYLE_ONLY = new Set(["calm-reading"]);
 const SCRIPT_ONLY = new Set(["polish"]);
+const MODULES = new Set(["thread-tabs"]); // folders with an index.js, loaded as ES modules like Amp's loader does
 if (!params.has("keep-seen")) try { localStorage.removeItem("amp-tweaks:changes-seen"); } catch {}
+for (const k of ["amp-tweaks:tabs.open", "amp-tweaks:tabs.titles", "amp-tweaks:tabs.split"]) sessionStorage.removeItem(k);
 for (const name of wanted) {
   if (!SCRIPT_ONLY.has(name)) document.head.append(Object.assign(document.createElement("link"), { rel: "stylesheet", href: `/tweaks/${name}/${name}.css` }));
-  if (!STYLE_ONLY.has(name)) document.head.append(Object.assign(document.createElement("script"), { src: `/tweaks/${name}/${name}.js` }));
+  if (MODULES.has(name)) document.head.append(Object.assign(document.createElement("script"), { type: "module", src: `/tweaks/${name}/index.js` }));
+  else if (!STYLE_ONLY.has(name)) document.head.append(Object.assign(document.createElement("script"), { src: `/tweaks/${name}/${name}.js` }));
 }
 document.documentElement.dataset.demoReady = "";

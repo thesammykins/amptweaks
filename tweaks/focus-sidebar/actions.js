@@ -1,5 +1,6 @@
 // User actions: archive (with the void animation), undo, snooze, mark done, archive all done, toasts.
-import { markRead, markUnread, navigate, snoozeThread, unsnoozeThread } from "./amp/actions.js";
+import { markRead, markUnread, snoozeThread, unsnoozeThread } from "./amp/actions.js";
+import { navigate } from "./amp/nav.js";
 import { EASE, TAG, reduceMotion } from "./config.js";
 import { closeTray } from "./input.js";
 import { recompute, refresh } from "./live.js";

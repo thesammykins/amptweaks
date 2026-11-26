@@ -71,13 +71,14 @@ def tweak_sources() -> tuple[dict[str, Path], dict[str, Path]]:
     return folders, loose
 
 
-def tweak_files() -> list[tuple[str, Path]]:
+def tweak_files(include_off: bool = False) -> list[tuple[str, Path]]:
     """Enabled tweak files as (served name, path), sorted by name so load order is predictable.
 
     A tweak is a folder (tweaks/<name>/*.js|css, or ~/.amp-tweaks/<name>/), served as "<name>/<file>".
-    Loose files in ~/.amp-tweaks also work (served by file name). Names in ~/.amp-tweaks/disabled are skipped."""
+    Loose files in ~/.amp-tweaks also work (served by file name). Names in ~/.amp-tweaks/disabled are skipped
+    unless include_off."""
     folders, loose = tweak_sources()
-    off = _disabled()
+    off = set() if include_off else _disabled()
     out = [(f"{name}/{p.relative_to(d).as_posix()}", p) for name, d in folders.items() if name not in off for p in _assets(d)]
     out += [(n, p) for n, p in loose.items() if n not in off and Path(n).stem not in off]
     return sorted(out)
@@ -93,6 +94,8 @@ def _meta(d: Path) -> dict:
         log.warning("amp-tweaks: %s: %s", f, e)
         return {}
     out = {k: m[k] for k in ("title", "summary", "needs", "why") if isinstance(m.get(k), str)}
+    if m.get("frames") is True:
+        out["frames"] = True
     if isinstance(m.get("options"), dict):
         out["options"] = m["options"]
     return out
@@ -179,8 +182,10 @@ def version(files: list[tuple[str, Path]]) -> str:
 
 def manifest() -> dict:
     """css: stylesheets. js: classic scripts, loaded in order. modules: a tweak folder with an index.js is an ES module
-    tweak; only index.js is loaded (as type=module) and it imports the folder's other files by relative path."""
+    tweak; only index.js is loaded (as type=module) and it imports the folder's other files by relative path.
+    frames: tweaks that also run in Amp framed inside Amp (the thread split); tweak.json "frames": true."""
     files = tweak_files()
+    folders, _ = tweak_sources()
     css = [f for f in files if f[1].suffix == ".css"]
     js = [f for f in files if f[1].suffix == ".js"]
     module_dirs = {n.split("/")[0] for n, _ in js if n.endswith("/index.js")}
@@ -189,6 +194,7 @@ def manifest() -> dict:
         "css": [n for n, _ in css],
         "js": [n for n, _ in js if not in_module(n)],
         "modules": [f"{d}/index.js" for d in sorted(module_dirs)],
+        "frames": sorted(n for n, d in folders.items() if _meta(d).get("frames")),
         "cssVersion": version(css),
         "jsVersion": version(js),
     }
@@ -464,10 +470,11 @@ async def serve_tweak(flow: http.HTTPFlow, name: str) -> None:
         return respond(flow, 200, LOADER.read_bytes(), "text/javascript; charset=utf-8")
     if name == "manifest.json":
         return respond(flow, 200, json.dumps(manifest()), "application/json")
-    # Serve only enabled tweaks, looked up by exact name (no paths), so nothing else on disk is reachable.
+    # Serve tweak files by exact name (no paths), so nothing else on disk is reachable. Files of a tweak that's off
+    # are served too (only enabled tweaks load), so one tweak can import another's modules.
     from urllib.parse import unquote
     name = unquote(name)
-    path = next((p for n, p in tweak_files() if n == name), None)
+    path = next((p for n, p in tweak_files(include_off=True) if n == name), None)
     if path is None:
         log.warning("amp-tweaks: refused %s", name)
         return respond(flow, 404, "not a tweak", "text/plain")
@@ -514,14 +521,35 @@ async def request(flow: http.HTTPFlow) -> None:
         return
     if flow.request.path.startswith(PREFIX):
         return await serve_tweak(flow, flow.request.path[len(PREFIX):].split("?")[0])
-    if flow.request.method == "GET" and flow.request.headers.get("sec-fetch-dest") == "document":
+    if flow.request.method == "GET" and flow.request.headers.get("sec-fetch-dest") in ("document", "iframe"):
         headers = [(k, v) for k, v in flow.request.headers.items(multi=True) if not k.startswith(":") and k.lower() not in HOP_BY_HOP]
         try:
             status, out, body = await asyncio.to_thread(_fetch_document, flow.request.pretty_host, flow.request.path, headers)
         except Exception as e:  # noqa: BLE001 — fall back to mitmproxy's own upstream path
             log.warning("amp-tweaks: document fetch failed after retries, falling back: %s %s", flow.request.path[:120], e)
             return
+        if _same_origin_frame(flow):
+            out = _allow_self_framing(out)
         flow.response = http.Response.make(status, body, http.Headers(out))
+
+
+def _same_origin_frame(flow: http.HTTPFlow) -> bool:
+    h = flow.request.headers
+    return h.get("sec-fetch-dest") == "iframe" and h.get("sec-fetch-site") == "same-origin"
+
+
+def _allow_self_framing(headers: list[tuple[bytes, bytes]]) -> list[tuple[bytes, bytes]]:
+    """Amp's pages refuse every frame (X-Frame-Options DENY, frame-ancestors 'none'). The thread split frames
+    Amp inside Amp, so a same-origin frame load gets SAMEORIGIN / 'self' instead: other sites still can't frame it."""
+    out = []
+    for k, v in headers:
+        name = k.lower()
+        if name == b"x-frame-options":
+            v = b"SAMEORIGIN"
+        elif name == b"content-security-policy":
+            v = re.sub(rb"frame-ancestors\s+'none'", b"frame-ancestors 'self'", v)
+        out.append((k, v))
+    return out
 
 
 def load(loader) -> None:

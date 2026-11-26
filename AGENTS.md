@@ -11,6 +11,8 @@ Tweaks run inside Amp's web client (SvelteKit, Tailwind) loaded through a local 
 - Act through Amp, not around it. Clicks, navigation and menus go through Amp's own (hidden) rows. Space threads 500 if you follow their href, and Amp's buttons ignore synthetic `.click()`.
 - For Amp's own data and commands (thread lineage, snooze, read state), call the SvelteKit remote functions Amp's UI calls, through `tweaks/focus-sidebar/amp/remote.js`: same origin, your session, and it finds a function's new hash after an Amp update. `/api/internal` needs a token a tweak doesn't have.
 - Fail open. If a tweak can't find what it needs, leave Amp's UI visible.
+- A tweak can import another tweak's modules by relative path (`../focus-sidebar/amp/nav.js`). Every tweak folder's files are served, on or off, and only enabled tweaks load.
+- Amp can frame itself for the thread split (the proxy relaxes `frame-ancestors` and `X-Frame-Options` for same-origin frames only). Inside a frame only tweaks whose `tweak.json` has `"frames": true` load, and `<html>` has `data-amp-tweaks-frame`.
 - Give a tweak a `tweak.json`: `title`, `summary`, optional `options` (`{key: {label, choices: [[value, label]…], default}}`, shown in the Tweaks menu and saved to `~/.amp-tweaks/settings.json`; read them from `/__amp-tweaks/settings.json` and listen for the `amp-tweaks:settings` event), and `needs` (`"amp"` if it only uses Amp's web app and its API, `"this-mac"` if it needs the proxy's actions or the `amp` CLI, with `why`). The Tweaks menu groups and labels tweaks by it.
 - Add a line to `changes.json` (newest first) when a tweak is added or changes in a way people would notice. It shows in the Tweaks menu's What's new.
 - After restarting the proxy, quit and reopen Amp. While the proxy is down Amp opens a direct connection to ampcode.com, and later reloads can go over it without tweaks.
@@ -30,7 +32,8 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 | --- | --- |
 | How Amp's sidebar is read (selectors, row signals) | `amp/dom.js` |
 | Turning off Amp's own sidebar filters (time range, hide running, needs-you only) | `amp/view-state.js` |
-| Clicking through to Amp (navigate, menu, pin, retry) and Amp's snooze / read commands | `amp/actions.js` |
+| Opening a thread, warming it, and Amp's menu for it, through Amp's own row (thread-tabs uses it too) | `amp/nav.js` |
+| Pin, retry, and Amp's snooze / read commands | `amp/actions.js` |
 | Amp's thread lineage and snoozes (its sidebar's own queries) | `amp/list.js` |
 | Calling Amp's remote functions (`/_app/remote/<hash>/<name>`, devalue, hash lookup) | `amp/remote.js` |
 | What counts as working / needs you / done, grouping, search | `model.js` |

@@ -1,0 +1,90 @@
+/* Thread tabs: our tabs sit in Amp's own tab row beside its tab for the conversation, sized like Amp's tabs. */
+@layer amp-tweaks {
+  [data-tt-row] > [data-card-tab]:not([data-card-tab="agent"]) { order: 1000; }
+
+  [data-tt-tab] {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    max-width: var(--tt-tab-max, 13rem);
+    height: 1.75rem;
+    align-self: center;
+    border-radius: 0.375rem;
+    color: var(--color-muted-foreground);
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: 500;
+  }
+  [data-tt-tab]:hover { background: color-mix(in oklab, var(--color-foreground) 5%, transparent); color: var(--color-foreground); }
+  [data-tt-open] {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 0.375rem;
+    height: 100%;
+    padding: 0 0.375rem 0 0.5rem;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    background: none;
+    border: 0;
+    outline: none;
+  }
+  [data-tt-tab]:has(> [data-tt-open]:focus-visible) { box-shadow: inset 0 0 0 1px var(--color-ring); }
+  [data-tt-title] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Where Amp's tab has the thread's icon: a dot when the thread has unread messages. */
+  [data-tt-dot] { display: grid; place-items: center; flex-shrink: 0; width: 0.875rem; height: 0.875rem; }
+  [data-tt-tab][data-unread] [data-tt-dot]::after { content: ""; width: 0.375rem; height: 0.375rem; border-radius: 50%; background: var(--color-terminal-bright-blue); }
+  [data-tt-tab][data-unread] { color: var(--color-foreground); }
+
+  /* Close: in the tab's trailing slot, shown on hover or focus, like a browser tab. */
+  [data-tt-close] {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 1.625rem;
+    height: 1.625rem;
+    margin-right: 0.125rem;
+    border-radius: 0.25rem;
+    color: var(--color-muted-foreground);
+    opacity: 0;
+  }
+  [data-tt-tab]:hover [data-tt-close], [data-tt-close]:focus-visible { opacity: 1; }
+  [data-tt-close]:hover { background: color-mix(in oklab, var(--color-foreground) 8%, transparent); color: var(--color-foreground); }
+  [data-tt-close] svg, [data-tt-frame-controls] svg { width: 0.875rem; height: 0.875rem; }
+
+  /* ---------- split ---------- */
+  [data-tt-split-open] [data-slot="sidebar-inset"] { margin-right: var(--tt-split-w) !important; }
+  [data-tt-split] {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    width: var(--tt-split-w);
+    border-left: 1px solid var(--color-border);
+    background: var(--color-background);
+  }
+  [data-tt-split] iframe { display: block; width: 100%; height: 100%; border: 0; }
+  [data-tt-split][data-dragging] iframe { pointer-events: none; }
+  [data-tt-split-handle] { position: absolute; top: 0; bottom: 0; left: -4px; width: 8px; z-index: 1; cursor: col-resize; }
+  [data-tt-split-handle]:hover, [data-tt-split][data-dragging] [data-tt-split-handle] { background: color-mix(in oklab, var(--color-ring) 40%, transparent); }
+
+  /* Inside the split: just the thread. */
+  [data-amp-tweaks-frame] [data-slot="sidebar"],
+  [data-amp-tweaks-frame] [data-slot="sidebar-gap"],
+  [data-amp-tweaks-frame] [data-primary-navigation-rail],
+  [data-amp-tweaks-frame] [data-slot="sidebar-wrapper"]:not(:has([data-slot="sidebar-inset"])) { display: none !important; }
+  [data-tt-frame-controls] { display: flex; align-items: center; gap: 0.125rem; padding: 0 0.375rem; }
+  [data-tt-frame-controls] button {
+    display: grid;
+    place-items: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    border-radius: 0.25rem;
+    color: var(--color-muted-foreground);
+  }
+  [data-tt-frame-controls] button:hover { background: color-mix(in oklab, var(--color-foreground) 5%, transparent); color: var(--color-foreground); }
+}

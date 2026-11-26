@@ -1,1 +1,1 @@
-{ "title": "Polish", "summary": "Small fixes across Amp, like full titles on cut-off thread links.", "needs": "amp" }
+{ "title": "Polish", "summary": "Small fixes across Amp, like full titles on cut-off thread links.", "needs": "amp", "frames": true }

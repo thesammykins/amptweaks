@@ -55,6 +55,15 @@
   xhr.open("GET", `${BASE}manifest.json?t=${Date.now()}`, false);
   xhr.send();
   const m = JSON.parse(xhr.responseText);
+  // Inside a frame (Amp framed in Amp for the thread split) only tweaks that ask for it run: the sidebar, Puck and
+  // the Tweaks menu belong to the window around it.
+  if (window.top !== window) {
+    document.documentElement.dataset.ampTweaksFrame = "";
+    const ok = n => (m.frames ?? []).includes(n.split("/")[0]);
+    m.css = m.css.filter(ok);
+    m.js = m.js.filter(ok);
+    m.modules = (m.modules ?? []).filter(ok);
+  }
 
   applyCss(m.css, m.cssVersion);
   for (const name of m.js) {

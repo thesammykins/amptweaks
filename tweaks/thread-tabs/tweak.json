@@ -1,0 +1,13 @@
+{
+  "title": "Thread tabs",
+  "summary": "Middle-click a thread to open it as a tab beside the one you're in.",
+  "needs": "amp",
+  "frames": true,
+  "options": {
+    "split": {
+      "label": "Split with ⌥ (experimental)",
+      "choices": [["off", "Off"], ["on", "On"]],
+      "default": "off"
+    }
+  }
+}

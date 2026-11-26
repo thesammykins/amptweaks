@@ -1,7 +1,8 @@
 // Input: pointer/touch swipes, keyboard navigation, click wiring for the root, warming the thread you're about to open.
 import { clearAmpFilters } from "./amp/view-state.js";
 import { archiveAllDone, archiveItems, familyIds, hrefOf, markDone, snoozeItem } from "./actions.js";
-import { navigate, openAmpMenu, pinThread, preload, retryThread } from "./amp/actions.js";
+import { pinThread, retryThread } from "./amp/actions.js";
+import { navigate, openAmpMenu, preload } from "./amp/nav.js";
 import { FINISHED_PAGE } from "./config.js";
 import { recompute } from "./live.js";
 import { applyFilter, menuHTML, openMenu } from "./menu.js";
@@ -231,6 +232,17 @@ export function wireRoot(root) {
     if (open) { e.preventDefault(); closeTray(open); return; }
     const row = e.target.closest("[data-amp-focus-row]");
     if (row) navigate(row.closest("[data-thread-id]").dataset.threadId, row.dataset.href, e);
+  });
+
+  // Middle-click: thread-tabs opens it as a tab (⌥: in a split) and cancels the event; without it, it's Amp's ⌘-click.
+  root.addEventListener("mousedown", e => { if (e.button === 1 && e.target.closest("[data-amp-focus-row]")) e.preventDefault(); });
+  root.addEventListener("auxclick", e => {
+    const row = e.button === 1 && e.target.closest("[data-amp-focus-row]");
+    if (!row) return;
+    e.preventDefault();
+    const id = row.closest("[data-thread-id]").dataset.threadId;
+    const ask = new CustomEvent("amp-tweaks:open-thread", { cancelable: true, detail: { id, split: e.altKey } });
+    if (dispatchEvent(ask)) navigate(id, row.dataset.href, { metaKey: true });
   });
 
   root.addEventListener("contextmenu", e => {
