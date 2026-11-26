@@ -19,6 +19,7 @@ Threads are grouped by Status, Project or Day, with a filter menu at the top rig
   <img src="images/hover.png" width="352" alt="A failed thread on hover, with Retry, pin, menu and archive">
 
 - Right-click or long-press opens Amp's menu for that thread.
+- Resting on a row (or arrowing to it) loads that thread in the background, as Amp's own sidebar does, so it opens without waiting on Amp's server.
 - ⌃⌘A archives the open thread and moves to the next one. ⌘Z undoes.
 - Arrow keys move between rows, → and ← open and close families, Enter opens, E archives, S snoozes, D marks an Ask or a finished thread done, P pins.
 

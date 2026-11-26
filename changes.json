@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-26-focus-warm",
+    "date": "2026-11-26",
+    "title": "Threads open faster from the sidebar",
+    "body": "Resting on a row, or moving to it with the arrow keys, loads that thread in the background the way Amp's own sidebar does, so clicking it opens in under 100ms instead of around 300ms.",
+    "tweak": "focus-sidebar"
+  },
+  {
     "id": "2026-11-26-focus-amp-snooze",
     "date": "2026-11-26",
     "title": "Snooze with Amp, sub-threads where they belong",

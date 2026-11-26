@@ -20,6 +20,13 @@ export function navigate(id, href, e) {
   temp?.remove();
 }
 
+// Amp's sidebar fetches a thread's data while you hover it (SvelteKit's hover preload), so the click only renders.
+// Our rows aren't links, so hand the hover to Amp's row: SvelteKit preloads 20ms after a mouseover on a link
+// (and skips rows Amp marks data-sveltekit-preload-data="false").
+export function preload(id) {
+  ampRow(id)?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, view: window }));
+}
+
 // Pin = Amp's own per-row pin button (it ignores .click(), so send the pointer sequence Amp listens for).
 export function pressAmp(b) {
   const r = b.getBoundingClientRect(), o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + 4, clientY: r.top + 4, button: 0 };

@@ -1,7 +1,7 @@
-// Input: pointer/touch swipes, keyboard navigation, click wiring for the root, hover reveal of row actions.
+// Input: pointer/touch swipes, keyboard navigation, click wiring for the root, warming the thread you're about to open.
 import { clearAmpFilters } from "./amp/view-state.js";
 import { archiveAllDone, archiveItems, familyIds, hrefOf, markDone, snoozeItem } from "./actions.js";
-import { navigate, openAmpMenu, pinThread, retryThread } from "./amp/actions.js";
+import { navigate, openAmpMenu, pinThread, preload, retryThread } from "./amp/actions.js";
 import { FINISHED_PAGE } from "./config.js";
 import { recompute } from "./live.js";
 import { applyFilter, menuHTML, openMenu } from "./menu.js";
@@ -308,7 +308,20 @@ export function wireRoot(root) {
   root.addEventListener("pointercancel", e => endTouch(e, true));
   root.addEventListener("pointermove", e => { if (e.pointerType === "mouse") S.lastMouseMove = performance.now(); }, { passive: true });
 
+  // Warm the thread a pointer rests on (or a key moves to) so opening it doesn't wait on Amp's server.
+  // No dedupe needed: SvelteKit ignores a repeat preload of the link it already holds.
+  let warmTimer = 0;
+  const warm = (row, ms) => {
+    clearTimeout(warmTimer);
+    const id = row?.closest("[data-thread-id]")?.dataset.threadId;
+    if (id) warmTimer = setTimeout(() => preload(id), ms);
+  };
+  root.addEventListener("pointerover", e => { if (e.pointerType === "mouse") warm(e.target.closest("[data-amp-focus-row]"), 60); });
+  root.addEventListener("pointerdown", e => warm(e.target.closest("[data-amp-focus-row]"), 0));
+  root.addEventListener("focusin", e => { if (e.target.matches("[data-amp-focus-row]:focus-visible")) warm(e.target, 150); });
+
   root.addEventListener("pointerleave", () => {
+    clearTimeout(warmTimer);
     if (swipe.active) return;
     root.querySelectorAll("[data-amp-focus-item][data-open]").forEach(closeTray);
     if (S.pending) render();

@@ -40,7 +40,7 @@ Each file owns one job, so a change usually touches one file. Shared mutable sta
 | Sections, ordering animation, header | `render/list.js` |
 | Archive, undo, snooze, mark done, toasts | `actions.js` |
 | Filter menu | `menu.js` |
-| Swipes, keyboard, hover reveal | `input.js` |
+| Swipes, keyboard, warming a thread before it opens | `input.js` |
 | Refresh timing, Amp change detection | `live.js` |
 | Saved prefs and caches | `store.js` |
 | Thread data from the proxy and Amp's API | `data.js` |
