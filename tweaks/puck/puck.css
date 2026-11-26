@@ -67,48 +67,6 @@
 [data-amp-tweaks-puck-card] [data-acts] button:hover { background: var(--color-accent); }
 [data-amp-tweaks-puck-card] kbd { font: inherit; color: var(--color-muted-foreground); font-weight: 400; }
 
-/* ---------- Puck · Thread in the new-thread popup ---------- */
-[data-amp-tweaks-puck-switch] {
-  --puck-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.25rem;
-  padding: 2px;
-  border-radius: 9999px;
-  background: var(--color-muted);
-}
-[data-amp-tweaks-puck-switch] [data-thumb] {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  border-radius: 9999px;
-  background: var(--color-background);
-  box-shadow: 0 0 0 1px var(--color-border);
-  transition: left 280ms var(--puck-ease), width 280ms var(--puck-ease);
-}
-[data-amp-tweaks-puck-switch] button {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  height: 1.5rem;
-  padding: 0 0.625rem;
-  border: 0;
-  border-radius: 9999px;
-  background: none;
-  color: var(--color-muted-foreground);
-  font: inherit;
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: color 150ms var(--puck-ease);
-}
-[data-amp-tweaks-puck-switch] button[aria-checked="true"] { color: var(--color-foreground); }
-[data-amp-tweaks-puck-switch] button:focus-visible { outline: 1px solid var(--color-ring); }
-/* Puck decides where work runs, so Amp's executor, project and model pickers step aside in Puck mode. */
-[data-amp-tweaks-puck-mode] [data-create-thread-picker-toggle] { display: none !important; }
-
 @media (prefers-reduced-motion: reduce) {
   [data-amp-tweaks-puck-card] { transition: opacity 120ms linear; translate: none; scale: none; filter: none; }
-  [data-amp-tweaks-puck-switch] [data-thumb] { transition: none; }
 }

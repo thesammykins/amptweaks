@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-11-26-puck-trim",
+    "date": "2026-11-26",
+    "title": "Puck, trimmed to what works",
+    "body": "Puck's card on the message box keeps Talk and Open Puck. The ⌘N Puck switch, Ask about this thread, the card opening by itself and the Presence setting are gone: Amp's own ⌃/, \"Message Puck\" in search and New Space do those jobs better.",
+    "tweak": "puck"
+  },
+  {
     "id": "2026-11-26-thread-tabs",
     "date": "2026-11-26",
     "title": "Thread tabs",

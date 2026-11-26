@@ -42,13 +42,7 @@ What's new in the menu shows each change as a card, like Amp's own news card, wi
 
 ### Puck (`puck`)
 
-Puck as the place work starts, with your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it).
-
-- On every thread's message box, Amp's Call Puck button shows your Puck, watching the pointer, with Amp's unread dot. Clicking it is Amp's own call. Its card leads with **Talk** (the call), then **Ask about this thread** and **Open Puck**. In the Mac app, Open Puck uses Amp's own Puck window, and Ask copies the thread's link for you to paste there (a tweak can open that window but can't type into it); elsewhere the link is drafted into Puck directly.
-- The new-thread popup (⌘N) gets a Puck · Thread switch. On Puck, what you type goes into Puck's chat as a draft; on Thread, the popup is Amp's own.
-- **Presence**, under Puck in the Tweaks menu: **Quiet** is your Puck on the message box only; **Present** (the default) adds Puck first in New Thread, and the card opening by itself when Puck has something new; **Everywhere** adds a once-a-day hello.
-
-Nothing is sent for you, and it never starts a new Puck chat (Amp's New Chat archives the current one).
+Amp's Call Puck button on every thread's message box shows your own Puck (copied from Amp's rail, so a custom character shows as Amp draws it), watching the pointer, with Amp's unread dot. Clicking it is Amp's own call. Hovering it shows Puck's latest line, with **Talk** (the call) and **Open Puck** (Amp's Puck window).
 
 ### Quick replies (`quick-replies`)
 
